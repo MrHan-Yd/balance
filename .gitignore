@@ -1,0 +1,25 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器临时文件
+*.swp
+*.swo
+*~
+.idea/workspace.xml
+
+# 日志与临时文件
+*.log
+tmp/
+temp/
+*.tmp
+
+# 构建产物（如后续引入前端构建工具）
+node_modules/
+dist/
+build/

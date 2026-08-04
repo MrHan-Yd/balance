@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!--
+    秤心 Balance · App 图标 v5（配色迭代：琥珀金 → 科技蓝 × 深空）
+    构图同 v3：倾斜切割胶囊（上半语音 / 下半承重 / 中间发光斜切）
+    配色（对齐设计文档 §4.6 v0.4）：
+    · 底：深空蓝黑渐变 #0B1220 → #070B14
+    · 上半胶囊：蓝调科技金属 #3E4A5E → #232B3A
+    · 发光斜切：电光蓝 #E3F2FF → #4FC3F7 → #1565C0
+    · 下半胶囊：深蓝灰 #2A3344 → #171D2A
+    · 高光线：顶部暖白 5px/35%，底部电光蓝 #4FC3F7 5px/50%
+  -->
+  <defs>
+    <!-- 背景：深空蓝灰渐变（v6 降饱和：蓝调减半，更中性沉稳） -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0E131A"/>
+      <stop offset="50%" stop-color="#0A0E14"/>
+      <stop offset="100%" stop-color="#080B10"/>
+    </linearGradient>
+
+    <!-- 上半胶囊：中性蓝灰金属（降饱和） -->
+    <linearGradient id="capsuleMatte" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A4148"/>
+      <stop offset="100%" stop-color="#252A30"/>
+    </linearGradient>
+
+    <!-- 下半胶囊：深蓝灰（降饱和） -->
+    <linearGradient id="capsuleLower" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#262D35"/>
+      <stop offset="100%" stop-color="#171B21"/>
+    </linearGradient>
+
+    <!-- 核心切口：电光蓝高发光渐变 -->
+    <linearGradient id="sliceGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E3F2FF"/>
+      <stop offset="35%" stop-color="#4FC3F7"/>
+      <stop offset="100%" stop-color="#1565C0"/>
+    </linearGradient>
+
+    <!-- 柔和弥散环境光滤镜 -->
+    <filter id="ambientGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="40" result="blur"/>
+    </filter>
+
+    <!-- 3D 悬浮立体软阴影 -->
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="20" stdDeviation="28" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- 1. 图标底板 (512x512，iOS Squircle 柔和圆角) -->
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#bgGradient)"/>
+
+  <!-- 2. 背景微光弥散 (电光蓝，v6 降低强度，仅作点缀) -->
+  <circle cx="256" cy="248" r="110" fill="#4FC3F7" opacity="0.10" filter="url(#ambientGlow)"/>
+
+  <!-- 3. 主体图形：倾斜悬浮的切割胶囊组 -->
+  <g filter="url(#softShadow)" transform="translate(256, 256) rotate(-8) translate(-256, -256)">
+
+    <!-- 3.1 上半胶囊 (语音 Pill) -->
+    <path d="M 200 116 A 56 56 0 0 1 312 116 L 312 208 L 200 232 Z" fill="url(#capsuleMatte)"/>
+    <!-- 顶弧边缘微光 (暖白高光) -->
+    <path d="M 206 116 A 50 50 0 0 1 306 116" fill="none" stroke="#EAEFF7" stroke-width="5" stroke-opacity="0.35"/>
+
+    <!-- 3.2 核心斜切面 (电光蓝发光，视觉支点) -->
+    <polygon points="200,236 312,212 312,242 200,266" fill="url(#sliceGlow)"/>
+
+    <!-- 3.3 下半胶囊 (错位偏移，承重端) -->
+    <path d="M 200 268 L 312 244 L 312 404 A 56 56 0 0 1 200 404 Z" fill="url(#capsuleLower)"/>
+    <!-- 底弧边缘反光 (电光蓝) -->
+    <path d="M 206 404 A 50 50 0 0 0 306 404" fill="none" stroke="#4FC3F7" stroke-width="5" stroke-opacity="0.5"/>
+
+  </g>
+</svg>

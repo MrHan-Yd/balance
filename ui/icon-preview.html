@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>秤心 Balance · App 图标预览</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #232A33 0%, #0F1115 60%);
+    min-height: 100vh; color: #E6E9ED; display: flex; flex-direction: column; align-items: center; padding: 40px 20px 60px;
+  }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: 2px; }
+  h1 small { font-size: 13px; color: #8A94A0; font-weight: 400; letter-spacing: 1px; margin-left: 10px; }
+  .tagline { margin-top: 8px; font-size: 13px; color: #8A94A0; }
+
+  .stage { display: flex; gap: 48px; align-items: center; margin: 40px 0 36px; flex-wrap: wrap; justify-content: center; }
+  .big {
+    width: 240px; height: 240px; border-radius: 54px; overflow: hidden;
+    box-shadow: 0 30px 60px rgba(46, 125, 50, 0.35), 0 8px 20px rgba(0,0,0,.4);
+    transition: transform .2s;
+  }
+  .big:hover { transform: scale(1.04); }
+  .big img, .sizes img { width: 100%; height: 100%; display: block; }
+
+  .sizes { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .cell .chip { border-radius: 22%; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.35); }
+  .cell .w180 .chip { width: 90px; height: 90px; }
+  .cell .w120 .chip { width: 60px; height: 60px; border-radius: 20%; }
+  .cell .w58 .chip  { width: 40px; height: 40px; border-radius: 22%; }
+  .cell span { font-size: 11px; color: #8A94A0; }
+
+  .info { max-width: 620px; width: 100%; background: #161B21; border: 1px solid #232B34; border-radius: 16px; padding: 20px 24px; }
+  .info h3 { font-size: 13px; color: #A5D6A7; letter-spacing: 2px; margin-bottom: 12px; }
+  .info .row { display: flex; justify-content: space-between; font-size: 12.5px; color: #C3CBD4; padding: 5px 0; border-bottom: 1px dashed #232B34; }
+  .info .row:last-child { border: none; }
+  .info .row b { color: #E6E9ED; font-weight: 500; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+  <h1>秤心 Balance <small>App Icon · v6 定稿</small></h1>
+  <p class="tagline">倾斜切割胶囊 —— 上半语音（麦克风 Pill），电光蓝斜切为天平支点，中性深灰蓝底低调沉稳</p>
+
+  <div class="stage">
+    <div class="big"><img src="icon.svg" alt="秤心 Balance 图标"></div>
+    <div class="sizes">
+      <div class="cell"><div class="w180"><div class="chip"><img src="icon.svg" alt="180pt"></div></div><span>180pt (iOS)</span></div>
+      <div class="cell"><div class="w120"><div class="chip"><img src="icon.svg" alt="120pt"></div></div><span>120pt</span></div>
+      <div class="cell"><div class="w58"><div class="chip"><img src="icon.svg" alt="58pt"></div></div><span>58pt</span></div>
+    </div>
+  </div>
+
+  <div class="info">
+    <h3>设计规格（60-30-10：中性 60% / 沉稳蓝 30% / 电光蓝点缀 10%）</h3>
+    <div class="row"><span>源文件</span><b>ui/icon.svg（512×512 矢量，v6 定稿）</b></div>
+    <div class="row"><span>底色</span><b><span class="swatch" style="background:linear-gradient(135deg,#0E131A,#080B10)"></span>中性深灰蓝渐变 #0E131A → #080B10</b></div>
+    <div class="row"><span>上半胶囊</span><b>中性蓝灰金属 #3A4148 → #252A30（语音 Pill）</b></div>
+    <div class="row"><span>发光斜切</span><b>电光蓝 #E3F2FF → #1565C0（唯一高饱和点缀）</b></div>
+    <div class="row"><span>下半胶囊</span><b>深蓝灰 #262D35 → #171B21</b></div>
+    <div class="row"><span>圆角</span><b>rx 115 / 512（iOS squircle 比例）</b></div>
+    <div class="row"><span>转换</span><b>Flutter 工程用 flutter_launcher_icons 自动出各平台尺寸</b></div>
+  </div>
+
+</body>
+</html>
