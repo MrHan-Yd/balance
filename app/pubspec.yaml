@@ -65,9 +65,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # 离线语音模型（whisper.cpp ggml-base-q5_1，首次启动拷贝到应用目录）
+  # 离线语音模型（whisper.cpp ggml-base-q8_0，首次启动拷贝到应用目录）
   assets:
-    - assets/models/ggml-base-q5_1.bin
+    - assets/models/ggml-base-q8_0.bin
 
   # To add assets to your application, add an assets section, like this:
   # assets:

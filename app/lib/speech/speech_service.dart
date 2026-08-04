@@ -15,8 +15,8 @@ enum SpeechSessionStatus { idle, listening, success, failed, timeout }
 /// 系统 STT（speech_to_text）在这些机型上不可用 → 改用 whisper.cpp 本地推理：
 /// 完全离线、无需账号、无需联网，模型随包内置（assets/models）。
 class SpeechService {
-  /// 内置量化模型（ggml-base-q5_1，约 57MB，中文数字识别够用）
-  static const String _assetModel = 'assets/models/ggml-base-q5_1.bin';
+  /// 内置量化模型（ggml-base-q8_0，约 78MB：8bit 量化几乎无损、速度与 fp16 相当）
+  static const String _assetModel = 'assets/models/ggml-base-q8_0.bin';
 
   final WhisperController _whisper = WhisperController();
   final AudioRecorder _recorder = AudioRecorder();
@@ -132,6 +132,8 @@ class SpeechService {
         modelPath: _modelPath,
         pcm16Stream: pcm,
         lang: 'zh',
+        // 模型驻留内存：首次说话加载后，后续会话不再等模型加载
+        keepModelLoaded: true,
       );
       // partials 是单订阅流：必须立即挂监听，否则事件在缓冲区堆积
       _partialsSub = _live!.partials.listen((_) {});
@@ -187,7 +189,7 @@ class SpeechService {
   /// 把内置模型从 assets 拷贝到应用目录（whisper 需要真实文件路径）
   Future<String> _ensureModel() async {
     final dir = await getApplicationSupportDirectory();
-    final file = File('${dir.path}/ggml-base-q5_1.bin');
+    final file = File('${dir.path}/ggml-base-q8_0.bin');
     if (file.existsSync() && file.lengthSync() > 0) return file.path;
     final data = await rootBundle.load(_assetModel);
     await file.writeAsBytes(data.buffer.asUint8List());
