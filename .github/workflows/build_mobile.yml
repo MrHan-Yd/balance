@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build APK & IPA
 
 # 触发方式：push 到 master 自动构建；或 Actions 页手动 "Run workflow"
 on:
@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-android:
+    name: Android APK
     runs-on: ubuntu-latest
     # 产物回写提交带 [skip ci]，避免自我触发形成死循环
     if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
@@ -46,15 +47,15 @@ jobs:
           git checkout -B "${GITHUB_REF_NAME}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add release/
+          git add release/balance-release.apk
           if git diff --cached --quiet; then
-            echo "release/ 无变化，跳过提交"
+            echo "APK 无变化，跳过提交"
           else
             git commit -m "chore: 更新 Android release APK [skip ci]"
             git push origin "${GITHUB_REF_NAME}"
           fi
 
-      # 发布到 Releases 页：首次创建 vX.Y.Z Release，之后只更新 APK 附件
+      # 发布到 Releases 页：首次创建 vX.Y.Z Release，之后只更新附件
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,6 +68,53 @@ jobs:
           else
             gh release create "${TAG}" release/balance-release.apk \
               --title "balance v${VER}" \
-              --notes "Android release APK（GitHub Actions 自动构建）" \
+              --notes "Android APK / iOS IPA（GitHub Actions 自动构建）" \
             || gh release upload "${TAG}" release/balance-release.apk --clobber
           fi
+
+  build-ios:
+    name: iOS IPA（未签名）
+    runs-on: macos-15
+    needs: build-android  # 串行：等 Android 推完再推，避免两个 runner 同时 push 冲突
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.29.3
+          cache: true
+
+      - name: Build unsigned IPA
+        working-directory: app
+        run: flutter build ipa --release --no-codesign
+
+      - name: Publish IPA to release/
+        working-directory: app
+        run: |
+          mkdir -p ../release
+          cp build/ios/ipa/Runner.ipa ../release/balance-release.ipa
+          ls -lh ../release/
+
+      - name: Commit and push IPA
+        run: |
+          git checkout -B "${GITHUB_REF_NAME}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release/balance-release.ipa
+          if git diff --cached --quiet; then
+            echo "IPA 无变化，跳过提交"
+          else
+            git commit -m "chore: 更新 iOS release IPA [skip ci]"
+            git push origin "${GITHUB_REF_NAME}"
+          fi
+
+      # 未签名 IPA 挂到 Releases 页存档（仅作产物，iPhone 无法直接安装）
+      - name: Publish IPA to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          TAG="v${VER}"
+          gh release upload "${TAG}" release/balance-release.ipa --clobber
