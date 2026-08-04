@@ -84,6 +84,13 @@ class SpeechService {
   /// 松手结算（连续模式）：停止录音，取最终文本并累加
   Future<void> finish() => _settle();
 
+  /// 释放驻留的模型内存（应用退到后台时调用，约省 80MB）。
+  /// 回到前台后的下一次说话会重新加载模型（约 1 秒）。
+  Future<void> releaseModel() {
+    if (_inSession) return Future.value(); // 会话中不释放
+    return _whisper.releaseModel();
+  }
+
   /// 停止并丢弃结果（进入后台/清理时调用，不累加）
   Future<void> stop() async {
     _silenceTimer?.cancel();

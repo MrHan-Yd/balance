@@ -61,10 +61,17 @@ class _HomePageState extends ConsumerState<HomePage>
     super.dispose();
   }
 
-  /// 应用进入后台 → 立即停止识别，防止误触发（设计文档 §4.3 / US-004）
+  /// 应用进入后台 → 立即停止识别，防止误触发（设计文档 §4.3 / US-004）；
+  /// 并释放驻留的语音模型内存，避免后台白白占用（约 80MB）
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _speech.stop();
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _speech.stop();
+      _speech.releaseModel();
+    } else if (state != AppLifecycleState.resumed) {
+      _speech.stop();
+    }
   }
 
   Future<void> _initSpeech() async {
