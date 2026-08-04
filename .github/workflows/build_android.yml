@@ -53,3 +53,20 @@ jobs:
             git commit -m "chore: 更新 Android release APK [skip ci]"
             git push origin "${GITHUB_REF_NAME}"
           fi
+
+      # 发布到 Releases 页：首次创建 vX.Y.Z Release，之后只更新 APK 附件
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          TAG="v${VER}"
+          echo "版本：${VER}，标签：${TAG}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            gh release upload "${TAG}" release/balance-release.apk --clobber
+          else
+            gh release create "${TAG}" release/balance-release.apk \
+              --title "balance v${VER}" \
+              --notes "Android release APK（GitHub Actions 自动构建）" \
+            || gh release upload "${TAG}" release/balance-release.apk --clobber
+          fi
