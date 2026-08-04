@@ -1,11 +1,11 @@
 {
-    "name": "balance",
-    "short_name": "balance",
+    "name": "秤心",
+    "short_name": "秤心",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "秤心 — 买菜语音自动加和助手",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

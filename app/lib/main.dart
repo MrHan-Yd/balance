@@ -6,7 +6,7 @@ import 'state/storage_providers.dart';
 import 'theme/app_theme.dart';
 import 'ui/home_page.dart';
 
-/// 秤心 Balance — 买菜语音自动加和助手
+/// 秤心 — 买菜语音自动加和助手
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
@@ -32,7 +32,7 @@ class BalanceApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '秤心 Balance',
+      title: '秤心',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
       home: const HomePage(),
