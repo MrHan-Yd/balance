@@ -1,13 +1,13 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'rolling_number_text.dart';
 
-/// 顶栏：半透明毛玻璃总价卡片（设计文档 §4.6 布局结构·顶部 35%）
+/// 顶栏：电光蓝发光总价卡片（设计文档 §4.6 布局结构·顶部 35%）
 ///
 /// 对齐原型 ui/index.html .total-card：
+/// - 实心蓝渐变（165deg：右上亮 → 左下暗，非毛玻璃半透明）
+/// - 黑色深投影 + 全包裹电光蓝光晕（box-shadow: 0 0 60px rgba(79,195,247,.16)）
 /// - 当前总价 + "本次共 N 件" 胶囊
 /// - 独立 ¥ 符号 + 大号金额（bump 弹跳动画 + 电光辉光）
 /// - 最近一条原文 + "撤销上一笔"按钮
@@ -30,30 +30,35 @@ class TotalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+    // 阴影放外层：ClipRRect 会裁掉内层溢出的投影，光晕必须画在裁剪之外
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          // 深色投影（原型 0 24px 50px rgba(0,0,0,.55)）
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.55),
+            blurRadius: 50,
+            offset: const Offset(0, 24),
+          ),
+          // 全包裹电光蓝光晕（原型 0 0 60px rgba(79,195,247,.16)）
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.16),
+            blurRadius: 60,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
         child: Container(
           decoration: BoxDecoration(
+            // 原型 linear-gradient(165deg)：右上亮蓝 → 左下深蓝
             gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
               colors: [AppColors.primaryTop, AppColors.primaryBottom],
             ),
-            borderRadius: BorderRadius.circular(28),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryTop.withValues(alpha: 0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.12),
-                blurRadius: 30,
-              ),
-            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
           child: Stack(

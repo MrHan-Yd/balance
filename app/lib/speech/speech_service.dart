@@ -26,9 +26,16 @@ class SpeechService {
     _onStatusChange = onStatusChange;
     return _speech.initialize(
       onStatus: (_) {},
+      // 插件只有这一个错误通道：listen 会话期间的错误也走这里转发
       onError: (error) {
         _setStatus(SpeechSessionStatus.failed);
-        onError?.call(error);
+        _timeoutTimer?.cancel();
+        final handler = _listenErrorHandler;
+        if (handler != null) {
+          handler(_friendlyError(error.errorMsg));
+        } else {
+          onError?.call(error);
+        }
       },
     );
   }
@@ -37,8 +44,12 @@ class SpeechService {
   Future<void> startSingle({
     required void Function(String text) onResult,
     void Function()? onTimeout,
+    void Function(String message)? onError,
   }) async {
-    if (!_speech.isAvailable) return;
+    if (!_speech.isAvailable) {
+      onError?.call('语音识别不可用，请检查系统语音服务');
+      return;
+    }
     await _stopIfListening();
     _timeoutTimer?.cancel();
     _timeoutTimer = Timer(const Duration(seconds: 3), () {
@@ -47,15 +58,19 @@ class SpeechService {
       stop();
       onTimeout?.call();
     });
-    _listen(onResult);
+    await _listen(onResult, onError: onError);
   }
 
   /// 按住：持续识别，按住期间连续识别并逐条累加；8 秒无结果自动停止并提示
   Future<void> startContinuous({
     required void Function(String text) onResult,
     void Function()? onTimeout,
+    void Function(String message)? onError,
   }) async {
-    if (!_speech.isAvailable) return;
+    if (!_speech.isAvailable) {
+      onError?.call('语音识别不可用，请检查系统语音服务');
+      return;
+    }
     await _stopIfListening();
     _timeoutTimer?.cancel();
     _timeoutTimer = Timer(const Duration(seconds: 8), () {
@@ -64,35 +79,62 @@ class SpeechService {
       stop();
       onTimeout?.call();
     });
-    _listen(onResult, partial: true);
+    await _listen(onResult, partial: true, onError: onError);
   }
 
   Future<void> _listen(
     void Function(String text) onResult, {
     bool partial = false,
+    void Function(String message)? onError,
   }) async {
-    await _speech.listen(
-      listenOptions: SpeechListenOptions(
-        partialResults: partial,
-        listenMode: ListenMode.dictation,
-        localeId: 'zh_CN',
-      ),
-      onResult: (SpeechRecognitionResult result) {
-        final text = result.recognizedWords.trim();
-        if (text.isEmpty) return;
-        // 只累加最终结果：长按连续识别时 partial 中间结果会随说话不断变化，
-        // 若直接累加，同一句话会被重复计入总价（如"黄瓜五块五"会被加 3~4 次）
-        if (!result.finalResult) return;
-        _setStatus(SpeechSessionStatus.success);
-        onResult(text);
-      },
-    );
-    _setStatus(SpeechSessionStatus.listening);
+    _listenErrorHandler = onError;
+    try {
+      await _speech.listen(
+        listenOptions: SpeechListenOptions(
+          partialResults: partial,
+          listenMode: ListenMode.dictation,
+          localeId: 'zh_CN',
+        ),
+        onResult: (SpeechRecognitionResult result) {
+          final text = result.recognizedWords.trim();
+          if (text.isEmpty) return;
+          // 只累加最终结果：长按连续识别时 partial 中间结果会随说话不断变化，
+          // 若直接累加，同一句话会被重复计入总价（如"黄瓜五块五"会被加 3~4 次）
+          if (!result.finalResult) return;
+          _listenErrorHandler = null; // 已成功出结果，会话目标达成
+          _setStatus(SpeechSessionStatus.success);
+          onResult(text);
+        },
+      );
+      _setStatus(SpeechSessionStatus.listening);
+    } catch (_) {
+      // 个别机型 listen 直接抛异常（如未初始化/无语音识别服务）
+      _timeoutTimer?.cancel();
+      _setStatus(SpeechSessionStatus.failed);
+      onError?.call('语音识别启动失败');
+    }
+  }
+
+  /// 把引擎返回的英文错误码转成可读的中文提示
+  String _friendlyError(String msg) {
+    final m = msg.toLowerCase();
+    if (m.contains('permission')) return '麦克风权限被拒绝';
+    if (m.contains('audio') || m.contains('microphone')) return '没有检测到麦克风输入';
+    if (m.contains('not_found') ||
+        m.contains('no_match') ||
+        m.contains('unavailable') ||
+        m.contains('cannot')) {
+      return '设备缺少语音识别服务';
+    }
+    if (m.contains('busy')) return '语音识别忙，请稍后再试';
+    if (m.contains('network') || m.contains('server')) return '语音服务网络异常';
+    return '语音识别出错：$msg';
   }
 
   /// 停止识别（松手 / 超时 / 进入后台）
   Future<void> stop() async {
     _timeoutTimer?.cancel();
+    _listenErrorHandler = null;
     if (_speech.isListening) {
       await _speech.stop();
     }
@@ -102,6 +144,7 @@ class SpeechService {
   /// 释放资源：取消定时器并断开状态回调（组件销毁时调用，避免 unmount 后 setState）
   void dispose() {
     _timeoutTimer?.cancel();
+    _listenErrorHandler = null;
     _onStatusChange = null;
   }
 
@@ -115,4 +158,7 @@ class SpeechService {
   }
 
   void Function(SpeechSessionStatus status)? _onStatusChange;
+
+  /// 当前 listen 会话的错误回调（插件错误通道的转发目标，见 [initialize]）
+  void Function(String message)? _listenErrorHandler;
 }

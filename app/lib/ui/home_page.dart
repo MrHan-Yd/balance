@@ -120,20 +120,44 @@ class _HomePageState extends ConsumerState<HomePage>
       ..showSnackBar(
         _failCount >= 2
             ? SnackBar(
-              content: const Text('连续没听清，建议使用手动键盘'),
-              duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: '切换到键盘',
-                onPressed: () {
-                  setState(() => _keypadMode = true);
-                  _modeCtrl.forward();
-                },
-              ),
-            )
+                content: const Text('连续没听清，建议使用手动键盘'),
+                duration: const Duration(seconds: 3),
+                action: SnackBarAction(
+                  label: '切换到键盘',
+                  onPressed: () {
+                    setState(() => _keypadMode = true);
+                    _modeCtrl.forward();
+                  },
+                ),
+              )
             : const SnackBar(
-              content: Text('没听清，请重说'),
-              duration: Duration(milliseconds: 1200),
-            ),
+                content: Text('没听清，请重说'),
+                duration: Duration(milliseconds: 1200),
+              ),
+      );
+    if (_failCount >= 2) _failCount = 0;
+  }
+
+  /// 语音识别出错（缺语音服务/权限被拒/引擎异常）：提示原因并引导切换手动键盘。
+  /// 此前该路径静默无反馈，表现为"点击语音按钮没反应"
+  void _onVoiceError(String message) {
+    _failCount++;
+    HapticFeedback.heavyImpact();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: '切换到键盘',
+            onPressed: () {
+              setState(() => _keypadMode = true);
+              _modeCtrl.forward();
+            },
+          ),
+        ),
       );
     if (_failCount >= 2) _failCount = 0;
   }
@@ -525,12 +549,14 @@ class _HomePageState extends ConsumerState<HomePage>
             _speech.startSingle(
               onResult: _onVoiceResult,
               onTimeout: _onVoiceFail,
+              onError: _onVoiceError,
             );
           },
           onLongPressStart: () async {
             _speech.startContinuous(
               onResult: _onVoiceResult,
               onTimeout: _onVoiceFail,
+              onError: _onVoiceError,
             );
           },
           onLongPressEnd: () async => _speech.stop(),
