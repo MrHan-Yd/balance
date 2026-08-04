@@ -559,7 +559,7 @@ class _HomePageState extends ConsumerState<HomePage>
               onError: _onVoiceError,
             );
           },
-          onLongPressEnd: () async => _speech.stop(),
+          onLongPressEnd: () async => _speech.finish(),
         ),
         const SizedBox(height: 8),
         const Text(

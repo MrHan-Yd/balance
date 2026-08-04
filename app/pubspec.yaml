@@ -34,7 +34,10 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  speech_to_text: ^7.4.0
+  # 语音识别：设备端离线 Whisper（国行安卓无 Google 服务/厂商引擎不开放，
+  # 系统 STT 不可用；whisper_ggml 本地推理无需账号联网，模型随包内置）
+  whisper_ggml: ^2.6.0
+  record: ^6.2.1
   flutter_riverpod: ^3.3.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
@@ -61,6 +64,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # 离线语音模型（whisper.cpp ggml-base-q5_1，首次启动拷贝到应用目录）
+  assets:
+    - assets/models/ggml-base-q5_1.bin
 
   # To add assets to your application, add an assets section, like this:
   # assets:
