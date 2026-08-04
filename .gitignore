@@ -23,3 +23,6 @@ temp/
 node_modules/
 dist/
 build/
+
+# CI 产物：APK 超 GitHub 100MB 单文件限制，不提交 git，经 Releases 页附件分发
+release/

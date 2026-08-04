@@ -12,8 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 产物回写提交带 [skip ci]，避免自我触发形成死循环
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
     steps:
       - uses: actions/checkout@v4
 
@@ -39,39 +37,21 @@ jobs:
         working-directory: app
         run: flutter build apk --release
 
-      - name: Publish APK to release/
-        working-directory: app
-        run: |
-          mkdir -p ../release
-          cp build/app/outputs/flutter-apk/app-release.apk ../release/balance-release.apk
-          ls -lh ../release/
-
-      - name: Commit and push APK
-        run: |
-          git checkout -B "${GITHUB_REF_NAME}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add release/balance-release.apk
-          if git diff --cached --quiet; then
-            echo "APK 无变化，跳过提交"
-          else
-            git commit -m "chore: 更新 Android release APK [skip ci]"
-            git push origin "${GITHUB_REF_NAME}"
-          fi
-
-      # 发布到 Releases 页：首次创建 vX.Y.Z Release，之后只更新附件
+      # 说明：APK 约 200MB（内置 Whisper 模型 + ffmpeg 原生库），超过 GitHub 100MB
+      # 单文件限制，无法回写提交到仓库；统一经 Releases 页附件分发（上限 2GB）。
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VER=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           TAG="v${VER}"
+          APK="app/build/app/outputs/flutter-apk/app-release.apk"
           echo "版本：${VER}，标签：${TAG}"
           if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
-            gh release upload "${TAG}" release/balance-release.apk --clobber
+            gh release upload "${TAG}" "${APK}" --clobber
           else
-            gh release create "${TAG}" release/balance-release.apk \
+            gh release create "${TAG}" "${APK}" \
               --title "balance v${VER}" \
               --notes "Android APK（GitHub Actions 自动构建）" \
-            || gh release upload "${TAG}" release/balance-release.apk --clobber
+            || gh release upload "${TAG}" "${APK}" --clobber
           fi
