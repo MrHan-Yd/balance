@@ -24,7 +24,7 @@ class SpeechService {
     void Function(SpeechRecognitionError error)? onError,
   }) async {
     _onStatusChange = onStatusChange;
-    return _speech.initialize(
+    final ok = await _speech.initialize(
       onStatus: (_) {},
       // 插件只有这一个错误通道：listen 会话期间的错误也走这里转发
       onError: (error) {
@@ -38,6 +38,24 @@ class SpeechService {
         }
       },
     );
+    if (ok) _localeId = await _pickLocale();
+    return ok;
+  }
+
+  /// 从设备可用地区里挑一个中文地区。
+  /// 国行 ROM 的识别引擎地区码不统一（zh_CN / zh-CN / cmn-Hans-CN…），
+  /// 硬编码 zh_CN 可能因引擎不认该地区而启动失败；
+  /// 无中文则退回系统地区，都取不到时交给引擎默认。
+  Future<String?> _pickLocale() async {
+    final locales = await _speech.locales();
+    if (locales.isEmpty) return null;
+    for (final l in locales) {
+      final id = l.localeId.toLowerCase().replaceAll('_', '-');
+      if (id == 'zh-cn' || id == 'zh' || id.startsWith('zh-')) {
+        return l.localeId;
+      }
+    }
+    return (await _speech.systemLocale())?.localeId ?? locales.first.localeId;
   }
 
   /// 点击：单次识别，识别出首个有效结果（或 3 秒超时）后自动停止并累加
@@ -93,7 +111,7 @@ class SpeechService {
         listenOptions: SpeechListenOptions(
           partialResults: partial,
           listenMode: ListenMode.dictation,
-          localeId: 'zh_CN',
+          localeId: _localeId,
         ),
         onResult: (SpeechRecognitionResult result) {
           final text = result.recognizedWords.trim();
@@ -161,4 +179,7 @@ class SpeechService {
 
   /// 当前 listen 会话的错误回调（插件错误通道的转发目标，见 [initialize]）
   void Function(String message)? _listenErrorHandler;
+
+  /// 识别地区：initialize 后按设备能力挑选（见 [_pickLocale]），null 走引擎默认
+  String? _localeId;
 }
