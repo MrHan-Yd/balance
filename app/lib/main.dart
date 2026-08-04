@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'state/session_notifier.dart';
+import 'state/storage_providers.dart';
 import 'theme/app_theme.dart';
 import 'ui/home_page.dart';
 
@@ -15,13 +15,15 @@ Future<void> main() async {
   final sessionBox = await Hive.openBox('session_box');
   final historyBox = await Hive.openBox('history_box');
 
-  runApp(ProviderScope(
-    overrides: [
-      sessionBoxProvider.overrideWithValue(sessionBox),
-      historyBoxProvider.overrideWithValue(historyBox),
-    ],
-    child: const BalanceApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [
+        sessionBoxProvider.overrideWithValue(sessionBox),
+        historyBoxProvider.overrideWithValue(historyBox),
+      ],
+      child: const BalanceApp(),
+    ),
+  );
 }
 
 class BalanceApp extends StatelessWidget {

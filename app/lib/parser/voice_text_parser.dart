@@ -6,19 +6,32 @@ import '../models/price_match.dart';
 ///   ① 中文数字归一化："牛肉三十八" → "牛肉38"
 ///   ② 金额单位映射：块/元 → 整数结束；毛/角 → 小数 1 位；分 → 小数 2 位
 ///   ③ 多金额提取：扫描全部候选数字（非 firstMatch）
-///   ④ 过滤：重量/数量单位相邻数字忽略；孤立数字视为报价；0 < 值 ≤ 99999
+///   ④ 过滤：重量/数量单位相邻数字忽略；孤立数字视为报价；
+///      上限按整数部分判定（0 < 值，整数部分 ≤ 99999，小数不推高上限）
 class VoiceTextParser {
   VoiceTextParser._();
 
   /// 中文数字表（"两" 归一为 2）
   static const Map<String, int> _chineseDigits = {
-    '零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
-    '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+    '零': 0,
+    '一': 1,
+    '二': 2,
+    '两': 2,
+    '三': 3,
+    '四': 4,
+    '五': 5,
+    '六': 6,
+    '七': 7,
+    '八': 8,
+    '九': 9,
   };
 
   /// 中文数字单位表（支持组合："三十八"→38，"一万零五"→10005）
   static const Map<String, int> _chineseUnits = {
-    '十': 10, '百': 100, '千': 1000, '万': 10000,
+    '十': 10,
+    '百': 100,
+    '千': 1000,
+    '万': 10000,
   };
 
   /// 金额单位：块/元 → 整数结束；毛/角 → 小数 1 位；分 → 小数 2 位
@@ -26,14 +39,25 @@ class VoiceTextParser {
 
   /// 重量/数量单位：相邻的数字忽略（"三斤" 不提取）
   static const Set<String> _ignoredUnits = {
-    '斤', '公斤', '克', '千克', '两', '个', '袋', '根', '只', '包', '箱',
+    '斤',
+    '公斤',
+    '克',
+    '千克',
+    '两',
+    '个',
+    '袋',
+    '根',
+    '只',
+    '包',
+    '箱',
   };
 
-  /// 有效金额上限
+  /// 有效金额上限（整数部分封顶，对齐键盘通道：99999.9 等小数不推高上限）
   static const double maxAmount = 99999;
 
-  static final RegExp _chineseNumberRegex =
-      RegExp('[${_chineseDigits.keys.join()}${_chineseUnits.keys.join()}]+');
+  static final RegExp _chineseNumberRegex = RegExp(
+    '[${_chineseDigits.keys.join()}${_chineseUnits.keys.join()}]+',
+  );
   static final RegExp _digitRegex = RegExp(r'\d+(\.\d+)?');
 
   /// 解析入口：返回全部金额匹配（可含 0~n 个）
@@ -80,6 +104,7 @@ class VoiceTextParser {
       }
       final unit = _chineseUnits[c];
       if (unit != null) {
+        if (number == 0) number = 1; // 缺省前置位："十一"=10+1、"十万"=10×万
         if (unit == 10000) {
           total += (section + number) * unit; // 万：结算整段
           section = 0;
@@ -116,12 +141,14 @@ class VoiceTextParser {
       if (!intPart.contains('.')) {
         final parsed = _parseAmountExpression(text, m);
         if (parsed != null) {
-          final amount = parsed.$1;
-          if (amount > 0 && amount <= maxAmount) {
-            results.add(PriceMatch(
-              value: amount,
-              rawText: text.substring(labelStart, parsed.$2).trim(),
-            ));
+          final amount = _roundToCent(parsed.$1);
+          if (amount > 0 && amount.truncate() <= maxAmount) {
+            results.add(
+              PriceMatch(
+                value: amount,
+                rawText: text.substring(labelStart, parsed.$2).trim(),
+              ),
+            );
             consumedUntil = parsed.$2;
             continue;
           }
@@ -132,12 +159,20 @@ class VoiceTextParser {
       if (_isFollowedByIgnoredUnit(text, m.end)) continue;
 
       // 孤立数字 → 视为直接报价
-      if (value > 0 && value <= maxAmount) {
-        results.add(PriceMatch(value: value, rawText: text.substring(labelStart, m.end).trim()));
+      if (value > 0 && value.truncate() <= maxAmount) {
+        results.add(
+          PriceMatch(
+            value: _roundToCent(value),
+            rawText: text.substring(labelStart, m.end).trim(),
+          ),
+        );
       }
     }
     return results;
   }
+
+  /// 舍入到分（两位小数精度），避免浮点误差（开发规范 §5.4）
+  static double _roundToCent(double v) => (v * 100).round() / 100;
 
   /// 解析以数字片段开头的金额表达式。
   /// 返回 (金额, 表达式结束位置)；不是金额表达时返回 null。
@@ -156,16 +191,19 @@ class VoiceTextParser {
       return (digits + frac.$1, frac.$2);
     }
 
-    // 毛/角/分 开头：纯小数（"5毛" → 0.5，"9分" → 0.09）
-    final frac = _parseFraction(text, m.end);
+    // 毛/角/分 开头：纯小数（"5毛" → 0.5，"9分" → 0.09）。
+    // leading 传入表达式开头的数字，作为毛位/分位值
+    final frac = _parseFraction(text, m.end, leading: digits);
     if (frac == null) return null;
     return (frac.$1, frac.$2);
   }
 
   /// 从 pos 起解析小数位序列（毛/角 1 位 + 分 2 位）。
-  /// 口语规则："X块Y" → X.Y；"X块Y毛Z" → X.YZ（毛位后省略"分"字）；"X块Y分" → X.0Y
+  /// 口语规则："X块Y" → X.Y；"X块Y毛Z" → X.YZ（毛位后省略"分"字）；"X块Y分" → X.0Y；
+  /// 以毛/角/分开头的表达式（"5毛"、"5毛5"、"9分"）由 [leading] 传入首位数字作毛/分位。
   /// 返回 (小数部分, 表达式结束位置)；无可解析内容时返回 null。
-  static (double, int)? _parseFraction(String text, int pos) {
+  static (double, int)? _parseFraction(String text, int pos,
+      {int? leading}) {
     var p = _skipSpaces(text, pos);
     if (p >= text.length) return null;
 
@@ -181,17 +219,22 @@ class VoiceTextParser {
       } else if (p < text.length && text[p] == '分') {
         fen = n.$1; // "X块Y分" → 分位
         p += 1;
+      } else if (_isFollowedByIgnoredUnit(text, p)) {
+        return null; // "5块3斤"：数字后紧跟重量/数量单位 → 非小数位，整块到此结束
       } else {
         jiao = n.$1; // "X块Y" → 块后直接数字即 1 位小数
       }
     } else if (text[p] == '毛' || text[p] == '角') {
+      jiao = leading; // 表达式开头数字即毛位："5毛" → 0.5 元
       p = _skipSpaces(text, p + 1);
       if (p < text.length && _isDigit(text, p)) {
         final n = _readDigits(text, p);
-        jiao = n.$1;
+        fen = n.$1; // "5毛5" → 毛位后的数字是分位
         p = n.$2;
+        if (p < text.length && text[p] == '分') p += 1;
       }
     } else if (text[p] == '分') {
+      fen = leading; // "9分" → 0.09 元
       p = _skipSpaces(text, p + 1);
       if (p < text.length && _isDigit(text, p)) {
         final n = _readDigits(text, p);
@@ -261,9 +304,17 @@ class VoiceTextParser {
     var start = digitStart;
     while (start > 0) {
       final prev = text[start - 1];
-      if (prev == '，' || prev == ',' || prev == '。' || prev == '．' ||
-          prev == '？' || prev == '！' || prev == '?' || prev == '!' ||
-          prev == '；' || prev == ';' || prev == '\n') {
+      if (prev == '，' ||
+          prev == ',' ||
+          prev == '。' ||
+          prev == '．' ||
+          prev == '？' ||
+          prev == '！' ||
+          prev == '?' ||
+          prev == '!' ||
+          prev == '；' ||
+          prev == ';' ||
+          prev == '\n') {
         break;
       }
       start--;

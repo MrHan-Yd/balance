@@ -4,23 +4,19 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/cart_item.dart';
 import '../models/session_state.dart';
 import '../parser/voice_text_parser.dart';
-
-/// 会话数据持久化 box（在 main 中注入）
-final sessionBoxProvider = Provider<Box>((ref) => throw UnimplementedError());
-
-/// 历史归档 box（按天分组，30 天自动清理）
-final historyBoxProvider = Provider<Box>((ref) => throw UnimplementedError());
+import 'history_provider.dart';
+import 'storage_providers.dart';
 
 /// 会话状态机（设计文档 §3 / §4.4）
-final sessionProvider =
-    NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);
+final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
+  SessionNotifier.new,
+);
 
 class SessionNotifier extends Notifier<SessionState> {
   static const String _itemsKey = 'items';
   static const String _undoKey = 'undo';
 
   Box get _box => ref.read(sessionBoxProvider);
-  Box get _historyBox => ref.read(historyBoxProvider);
 
   @override
   SessionState build() {
@@ -28,21 +24,36 @@ class SessionNotifier extends Notifier<SessionState> {
     final items = (_box.get(_itemsKey) as List?) ?? const [];
     final undo = (_box.get(_undoKey) as List?) ?? const [];
     return SessionState(
-      items: items
-          .map((e) => CartItem.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList(),
-      undoStack: undo
-          .map((e) => CartItem.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList(),
+      items:
+          items
+              .map(
+                (e) => CartItem.fromJson(Map<String, dynamic>.from(e as Map)),
+              )
+              .toList(),
+      undoStack:
+          undo
+              .map(
+                (e) => CartItem.fromJson(Map<String, dynamic>.from(e as Map)),
+              )
+              .toList(),
     );
   }
 
-  /// 将一句识别文本解析为多条明细并逐条累加（设计文档 §4.2 ③）
-  void addParsedText(String text) {
+  /// 将一句识别文本解析为多条明细并逐条累加（设计文档 §4.2 ③）；
+  /// 返回本次实际插入的条目（供播报/UI 反馈，空列表 = 解析无金额）
+  List<CartItem> addParsedText(String text) {
     final matches = VoiceTextParser.parseVoiceTexts(text);
+    final added = <CartItem>[];
     for (final m in matches) {
-      addItem(CartItem(label: m.rawText, amount: m.value, addedAt: DateTime.now()));
+      final item = CartItem(
+        label: m.rawText,
+        amount: m.value,
+        addedAt: DateTime.now(),
+      );
+      addItem(item);
+      added.add(item);
     }
+    return added;
   }
 
   /// 追加明细 → 更新总价 → 持久化；超出 200 条最旧归档到历史
@@ -70,44 +81,33 @@ class SessionNotifier extends Notifier<SessionState> {
     _persist();
   }
 
-  /// 清空（需二次确认，由 UI 层把关）；清空后撤销栈同步清空
+  /// 删除单项（明细行滑动删除，US-007）：从明细与撤销栈中同步移除，
+  /// 保证撤销栈与明细一一对应，总价联动更新
+  void removeItem(CartItem item) {
+    final items = [...state.items]..remove(item);
+    final undoStack = [...state.undoStack]..remove(item);
+    if (items.length == state.items.length) return; // 未匹配到，忽略
+    state = state.copyWith(items: items, undoStack: undoStack);
+    _persist();
+  }
+
+  /// 清空（需二次确认，由 UI 层把关）；清空后撤销栈同步清空。
+  /// 清空 = 结算完成：本次明细归档进当日历史（设计文档 §2.5 核心闭环 US-012）
   void clear() {
+    if (state.items.isNotEmpty) {
+      ref.read(historyProvider.notifier).archive(state.items);
+    }
     state = const SessionState();
     _persist();
   }
 
   /// 历史归档：按天分组写入 history box（设计文档 §4.4，保留 30 天）
   void _archive(List<CartItem> items) {
-    for (final item in items) {
-      final dayKey = _dayKey(item.addedAt);
-      final list = List<Map>.from(
-          (_historyBox.get(dayKey) as List?) ?? const []);
-      list.add(item.toJson());
-      _historyBox.put(dayKey, list);
-    }
-    _cleanExpiredHistory();
+    ref.read(historyProvider.notifier).archive(items);
   }
-
-  /// 清理 30 天前的历史记录
-  void _cleanExpiredHistory() {
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    for (final key in _historyBox.keys.toList()) {
-      if (key is String && key.length == 10) {
-        final day = DateTime.tryParse(key);
-        if (day != null && day.isBefore(cutoff)) {
-          _historyBox.delete(key);
-        }
-      }
-    }
-  }
-
-  String _dayKey(DateTime t) =>
-      '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
 
   void _persist() {
-    _box.put(_itemsKey,
-        state.items.map((e) => e.toJson()).toList());
-    _box.put(_undoKey,
-        state.undoStack.map((e) => e.toJson()).toList());
+    _box.put(_itemsKey, state.items.map((e) => e.toJson()).toList());
+    _box.put(_undoKey, state.undoStack.map((e) => e.toJson()).toList());
   }
 }

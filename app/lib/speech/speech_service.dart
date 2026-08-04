@@ -50,9 +50,10 @@ class SpeechService {
     _listen(onResult);
   }
 
-  /// 按住：持续识别，按住期间连续识别并逐条累加；8 秒无结果自动停止
+  /// 按住：持续识别，按住期间连续识别并逐条累加；8 秒无结果自动停止并提示
   Future<void> startContinuous({
     required void Function(String text) onResult,
+    void Function()? onTimeout,
   }) async {
     if (!_speech.isAvailable) return;
     await _stopIfListening();
@@ -61,12 +62,15 @@ class SpeechService {
       if (_status != SpeechSessionStatus.listening) return;
       _setStatus(SpeechSessionStatus.timeout);
       stop();
+      onTimeout?.call();
     });
     _listen(onResult, partial: true);
   }
 
-  Future<void> _listen(void Function(String text) onResult,
-      {bool partial = false}) async {
+  Future<void> _listen(
+    void Function(String text) onResult, {
+    bool partial = false,
+  }) async {
     await _speech.listen(
       listenOptions: SpeechListenOptions(
         partialResults: partial,
@@ -76,10 +80,11 @@ class SpeechService {
       onResult: (SpeechRecognitionResult result) {
         final text = result.recognizedWords.trim();
         if (text.isEmpty) return;
-        if (result.finalResult || partial) {
-          _setStatus(SpeechSessionStatus.success);
-          onResult(text);
-        }
+        // 只累加最终结果：长按连续识别时 partial 中间结果会随说话不断变化，
+        // 若直接累加，同一句话会被重复计入总价（如"黄瓜五块五"会被加 3~4 次）
+        if (!result.finalResult) return;
+        _setStatus(SpeechSessionStatus.success);
+        onResult(text);
       },
     );
     _setStatus(SpeechSessionStatus.listening);
@@ -92,6 +97,12 @@ class SpeechService {
       await _speech.stop();
     }
     _setStatus(SpeechSessionStatus.idle);
+  }
+
+  /// 释放资源：取消定时器并断开状态回调（组件销毁时调用，避免 unmount 后 setState）
+  void dispose() {
+    _timeoutTimer?.cancel();
+    _onStatusChange = null;
   }
 
   void _setStatus(SpeechSessionStatus s) {

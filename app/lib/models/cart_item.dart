@@ -23,15 +23,29 @@ class CartItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'amount': amount,
-        'addedAt': addedAt.millisecondsSinceEpoch,
-      };
+    'label': label,
+    'amount': amount,
+    'addedAt': addedAt.millisecondsSinceEpoch,
+  };
 
   factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
-        label: json['label'] as String? ?? '',
-        amount: (json['amount'] as num).toDouble(),
-        addedAt:
-            DateTime.fromMillisecondsSinceEpoch(json['addedAt'] as int),
-      );
+    label: json['label'] as String? ?? '',
+    amount: (json['amount'] as num).toDouble(),
+    addedAt: DateTime.fromMillisecondsSinceEpoch(json['addedAt'] as int),
+  );
+
+  /// 值相等：label + amount + addedAt 全同视为同一条（用于滑动删除匹配撤销栈）
+  @override
+  bool operator ==(Object other) =>
+      other is CartItem &&
+      other.label == label &&
+      other.amount == amount &&
+      other.addedAt == addedAt;
+
+  @override
+  int get hashCode => Object.hash(label, amount, addedAt);
+
+  @override
+  String toString() =>
+      'CartItem(${label.isEmpty ? "未命名" : label}, $amount, $addedAt)';
 }

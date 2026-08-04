@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 /// - 识别中：声波脉冲动画
 class MicButton extends StatefulWidget {
   final SpeechSessionStatus status;
+  final bool enabled;
   final Future<void> Function()? onTap;
   final Future<void> Function()? onLongPressStart;
   final Future<void> Function()? onLongPressEnd;
@@ -17,6 +18,7 @@ class MicButton extends StatefulWidget {
   const MicButton({
     super.key,
     required this.status,
+    this.enabled = true,
     this.onTap,
     this.onLongPressStart,
     this.onLongPressEnd,
@@ -54,54 +56,72 @@ class _MicButtonState extends State<MicButton>
 
   @override
   Widget build(BuildContext context) {
-    final label = _isListening ? '正在聆听…' : '按住 / 点击 说话';
-    return GestureDetector(
-      onTap: widget.onTap,
-      onLongPressStart: (_) => widget.onLongPressStart?.call(),
-      onLongPressEnd: (_) => widget.onLongPressEnd?.call(),
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.micTop, AppColors.micBottom],
+    final label =
+        !widget.enabled
+            ? '手动输入模式'
+            : _isListening
+            ? '正在聆听…'
+            : '按住 · 说话';
+    // 聆听时切换语义色红光（原型 .talk-btn.listening：#C62828 → #E53935）
+    final gradient = _isListening
+        ? const [Color(0xFFC62828), Color(0xFFE53935)]
+        : const [AppColors.micTop, AppColors.micBottom];
+    final glow = _isListening
+        ? const Color(0x59E53935)
+        : AppColors.micTop.withValues(alpha: 0.3);
+    return Opacity(
+      opacity: widget.enabled ? 1 : 0.45,
+      child: GestureDetector(
+        onTap: widget.enabled ? widget.onTap : null,
+        onLongPressStart:
+            widget.enabled ? (_) => widget.onLongPressStart?.call() : null,
+        onLongPressEnd:
+            widget.enabled ? (_) => widget.onLongPressEnd?.call() : null,
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
+            ),
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: glow,
+                blurRadius: _isListening ? 26 : 16,
+                spreadRadius: 1 + _pulse.value * 3,
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.micTop.withValues(alpha: _isListening ? 0.55 : 0.3),
-              blurRadius: _isListening ? 26 : 16,
-              spreadRadius: 1 + _pulse.value * 3,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedBuilder(
-              animation: _pulse,
-              builder: (_, child) => Transform.scale(
-                scale: 1 + _pulse.value * 0.25,
-                child: child,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedBuilder(
+                animation: _pulse,
+                builder:
+                    (_, child) => Transform.scale(
+                      scale: 1 + _pulse.value * 0.25,
+                      child: child,
+                    ),
+                child: Icon(
+                  _isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+                  color: Colors.white,
+                  size: 30,
+                ),
               ),
-              child: Icon(
-                _isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
-                color: Colors.white,
-                size: 30,
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

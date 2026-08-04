@@ -16,10 +16,7 @@ class SessionState {
 
   const SessionState({this.items = const [], this.undoStack = const []});
 
-  SessionState copyWith({
-    List<CartItem>? items,
-    List<CartItem>? undoStack,
-  }) {
+  SessionState copyWith({List<CartItem>? items, List<CartItem>? undoStack}) {
     return SessionState(
       items: items ?? this.items,
       undoStack: undoStack ?? this.undoStack,
