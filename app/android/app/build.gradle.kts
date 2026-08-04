@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.chengxin.balance"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // whisper_ggml 要求 NDK 29（其 build.gradle 写死 ndkVersion），
+    // 本地/CI 需使用该版本编译原生 whisper.cpp
+    ndkVersion = "29.0.13113456"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

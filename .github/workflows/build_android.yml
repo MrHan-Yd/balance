@@ -30,6 +30,11 @@ jobs:
           flutter-version: 3.29.3
           cache: true
 
+      # whisper_ggml 需要 NDK 29，Gradle 自动安装前必须先接受许可证
+      - name: Accept Android SDK licenses
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+
       - name: Build release APK
         working-directory: app
         run: flutter build apk --release
