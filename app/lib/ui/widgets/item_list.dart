@@ -16,23 +16,33 @@ class ItemList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      // 空状态：引导文案（原型 .empty）
-      return const Center(
+      // 空状态：引导文案（原型 .empty，图标带粉色圆底 .mic-ico）
+      // 注：Container 构造非 const，此处不能整棵 const
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.mic_none_rounded,
-              size: 48,
-              color: AppColors.textSecondary,
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0x29F291A2), // rgba(242,145,162,.16)
+              ),
+              // 设计话筒图标（ui/button.png 切图 button6，对齐语音键同款）
+              child: Image.asset(
+                'assets/icons/button6.png',
+                width: 30,
+                height: 30,
+              ),
             ),
-            SizedBox(height: 12),
-            Text(
+            const SizedBox(height: 12),
+            const Text(
               '开始说话，自动记账',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
             ),
-            SizedBox(height: 4),
-            Text(
+            const SizedBox(height: 4),
+            const Text(
               '说“黄瓜五块五”或直接说“38”',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
@@ -61,18 +71,26 @@ class ItemList extends StatelessWidget {
           onDismissed: (_) => onRemove?.call(item),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              border: Border.all(color: AppColors.cardBorder),
+              boxShadow: [
+                // 原型 .item 0 6px 18px rgba(242,145,162,.18)
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: ListTile(
-              // 首字徽章（原型 .badge：34×34 圆角蓝底）
+              // 首字徽章（原型 .badge：34×34 圆角粉底）
               leading: Container(
                 width: 34,
                 height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.16),
+                  color: AppColors.accent.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
@@ -120,7 +138,7 @@ class ItemList extends StatelessWidget {
                     icon: const Icon(
                       Icons.close_rounded,
                       size: 18,
-                      color: Color(0xFF5C6B80),
+                      color: Color(0xFFB08A92),
                     ),
                     tooltip: '删除',
                     visualDensity: VisualDensity.compact,

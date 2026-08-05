@@ -66,9 +66,10 @@ class _MicButtonState extends State<MicButton>
     final gradient = _isListening
         ? const [Color(0xFFC62828), Color(0xFFE53935)]
         : const [AppColors.micTop, AppColors.micBottom];
+    // 弥散光晕（原型 0 0 40px rgba(242,145,162,.35)）
     final glow = _isListening
         ? const Color(0x59E53935)
-        : AppColors.micTop.withValues(alpha: 0.3);
+        : const Color(0x59F291A2);
     return Opacity(
       opacity: widget.enabled ? 1 : 0.45,
       child: GestureDetector(
@@ -85,40 +86,83 @@ class _MicButtonState extends State<MicButton>
               end: Alignment.bottomRight,
               colors: gradient,
             ),
+            // 白色描边（原型 .talk-btn border rgba(255,255,255,.30)）
+            border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
+              // 深影（原型 0 14px 34px rgba(210,110,130,.35)）
+              BoxShadow(
+                color: _isListening
+                    ? const Color(0x40C21E1E)
+                    : const Color(0x59D26E82),
+                blurRadius: 34,
+                offset: const Offset(0, 14),
+              ),
+              // 弥散光晕（原型 0 0 40px rgba(242,145,162,.35)）
               BoxShadow(
                 color: glow,
-                blurRadius: _isListening ? 26 : 16,
-                spreadRadius: 1 + _pulse.value * 3,
+                blurRadius: 40,
+                spreadRadius: _isListening ? 1 + _pulse.value * 3 : 0,
               ),
             ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              AnimatedBuilder(
-                animation: _pulse,
-                builder:
-                    (_, child) => Transform.scale(
-                      scale: 1 + _pulse.value * 0.25,
-                      child: child,
+              // 顶部高光线（原型 .talk-btn::after rgba(255,255,255,.55)）
+              const Positioned(
+                top: 0,
+                left: 22,
+                right: 22,
+                height: 1.5,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Color(0x8CFFFFFF),
+                          Colors.transparent,
+                        ],
+                      ),
                     ),
-                child: Icon(
-                  _isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
-                  color: Colors.white,
-                  size: 30,
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _pulse,
+                    builder:
+                        (_, child) => Transform.scale(
+                          scale: 1 + _pulse.value * 0.25,
+                          child: child,
+                        ),
+                    // 设计图标 button6（麦克风）；聆听中切换声波动画图标
+                    child: _isListening
+                        ? const Icon(
+                            Icons.graphic_eq_rounded,
+                            color: Colors.white,
+                            size: 30,
+                          )
+                        : Image.asset(
+                            'assets/icons/button6.png',
+                            width: 32,
+                            height: 32,
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

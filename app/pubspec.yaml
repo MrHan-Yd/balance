@@ -66,8 +66,10 @@ flutter:
   uses-material-design: true
 
   # 离线语音模型（whisper.cpp ggml-base-q8_0，首次启动拷贝到应用目录）
+  # 按钮图标（button1~6：撤销/历史/设置/键盘/清空/语音，从 ui/button.png 切出）
   assets:
     - assets/models/ggml-base-q8_0.bin
+    - assets/icons/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

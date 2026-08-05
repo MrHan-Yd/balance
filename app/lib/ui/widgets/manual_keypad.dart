@@ -55,9 +55,22 @@ class ManualKeypadState extends State<ManualKeypad> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 输入显示框（原型 .keypad-input：白底 + 粉描边 + 0 2px 10px 阴影）
           Container(
             alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Text(
               _display,
               style: const TextStyle(
@@ -114,23 +127,43 @@ class _KeyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Center(
-          child:
-              icon != null
-                  ? Icon(icon, color: AppColors.textPrimary, size: 24)
-                  : Text(
-                    label!,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 22,
+    // 键帽风格（对齐 ui/button4.png：奶油键面 + 顶部高光 + 粉棕键隙/投影）
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFF4DF), Color(0xFFF8E4C9)], // 亮奶油 → 奶油粉
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x2ED9A88F)),
+        boxShadow: [
+          // 键帽底部粉棕投影（对齐 button4 键隙 #9C6257 系）
+          const BoxShadow(
+            color: Color(0x33B0846F),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Center(
+            child:
+                icon != null
+                    ? Icon(icon, color: AppColors.amountText, size: 24)
+                    : Text(
+                      label!,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 22,
+                      ),
                     ),
-                  ),
+          ),
         ),
       ),
     );

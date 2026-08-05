@@ -34,7 +34,7 @@ class BalanceApp extends StatelessWidget {
     return MaterialApp(
       title: '秤心',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.light(),
       home: const HomePage(),
     );
   }

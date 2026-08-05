@@ -5,44 +5,86 @@ import '../../models/history_day.dart';
 import '../../state/history_provider.dart';
 import '../../theme/app_theme.dart';
 
-/// 历史记录页（设计文档 §4.4 / US-012）：按天分组，查看/删除单日
-class HistoryPage extends ConsumerWidget {
-  const HistoryPage({super.key});
+/// 历史记录抽屉（设计文档 §4.4 / US-012）：按天分组，查看/删除单日。
+///
+/// 从底部滑出（对齐原型 ui/index.html 历史弹层 .sheet），替代原全屏页面。
+class HistorySheet extends ConsumerWidget {
+  const HistorySheet({super.key});
+
+  /// 弹出历史抽屉
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.sheet,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        // 原型 .sheet border rgba(233,127,139,.18)
+        side: BorderSide(color: Color(0x2EE97F8B)),
+      ),
+      builder: (_) => const HistorySheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final days = ref.watch(historyProvider).days;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('历史记录'),
-        backgroundColor: AppColors.backgroundTop,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.backgroundTop, AppColors.backgroundBottom],
-          ),
-        ),
-        child:
-            days.isEmpty
-                ? const Center(
-                  child: Text(
-                    '暂无历史记录',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 15,
+    final maxH = MediaQuery.sizeOf(context).height * 0.7;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxH),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // grab 条（原型 .sheet .grab）
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                '历史记录',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (days.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(
+                    child: Text(
+                      '暂无历史记录',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 )
-                : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: days.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) => _DayCard(day: days[index]),
+              else
+                Flexible(
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: days.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) => _DayCard(day: days[index]),
+                  ),
                 ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -57,8 +99,13 @@ class _DayCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
-      color: Colors.white.withValues(alpha: 0.05),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: AppColors.card,
+      elevation: 0,
+      shadowColor: AppColors.accent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
       child: ExpansionTile(
         title: Text(
           day.dayKey,
@@ -133,7 +180,7 @@ class _DayCard extends ConsumerWidget {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            backgroundColor: AppColors.backgroundTop,
+            backgroundColor: AppColors.sheet,
             title: const Text(
               '删除当日历史？',
               style: TextStyle(color: AppColors.textPrimary),

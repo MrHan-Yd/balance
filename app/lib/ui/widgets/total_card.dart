@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
@@ -35,15 +37,15 @@ class TotalCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
-          // 深色投影（原型 0 24px 50px rgba(0,0,0,.55)）
+          // 深色投影（原型 0 24px 50px rgba(200,110,130,.28)：粉色投影而非黑色）
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
+            color: const Color(0x47C86E82),
             blurRadius: 50,
             offset: const Offset(0, 24),
           ),
-          // 全包裹电光蓝光晕（原型 0 0 60px rgba(79,195,247,.16)）
+          // 全包裹粉色光晕（原型 0 0 60px rgba(242,145,162,.38)）
           BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.16),
+            color: const Color(0x61F291A2),
             blurRadius: 60,
           ),
         ],
@@ -52,13 +54,14 @@ class TotalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         child: Container(
           decoration: BoxDecoration(
-            // 原型 linear-gradient(165deg)：右上亮蓝 → 左下深蓝
+            // 原型 linear-gradient(165deg)：左上亮粉 → 右下玫瑰
+            //（CSS 165deg 起点在 345° 即左上，终点在 165° 即右下）
             gradient: const LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [AppColors.primaryTop, AppColors.primaryBottom],
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
           child: Stack(
@@ -74,23 +77,27 @@ class TotalCard extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        Color(0x73EAF6FF),
+                        Color(0x8CFFFFFF),
                         Colors.transparent,
                       ],
                     ),
                   ),
                 ),
               ),
-              // 底部弥散电光斑（原型 ::after）
+              // 底部弥散光斑（原型 ::after + filter: blur(6px)；
+              // 必须模糊，否则硬边圆被圆角裁剪后会变成"贝壳"形）
               Positioned(
                 bottom: -70,
                 left: -40,
-                child: Container(
-                  width: 170,
-                  height: 170,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x1AE3F2FF),
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                  child: Container(
+                    width: 170,
+                    height: 170,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x24FFFFFF),
+                    ),
                   ),
                 ),
               ),
@@ -122,7 +129,7 @@ class TotalCard extends StatelessWidget {
         const Text(
           '当前总价',
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: Color(0xE6FFFFFF), // 原型 .total-label opacity .9
             fontSize: 13,
             letterSpacing: 2,
           ),
@@ -131,15 +138,12 @@ class TotalCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.16),
+            color: Colors.white.withValues(alpha: 0.22), // 原型 rgba(255,255,255,.22)
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '本次共 $itemCount 件',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 11),
           ),
         ),
       ],
@@ -157,7 +161,7 @@ class TotalCard extends StatelessWidget {
         const Text(
           '¥',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: Colors.white,
             fontSize: 26,
             fontWeight: FontWeight.w600,
           ),
@@ -167,14 +171,14 @@ class TotalCard extends StatelessWidget {
         RollingNumberText(
           text: _formatTotal(total),
           style: const TextStyle(
-            color: AppColors.textPrimary,
+            color: Colors.white,
             fontSize: 60,
             fontWeight: FontWeight.w700,
             letterSpacing: -2,
             fontFeatures: [FontFeature.tabularFigures()],
             shadows: [
-              // 电光辉光（原型 text-shadow: 0 0 28px）
-              Shadow(color: Color(0x38E3F2FF), blurRadius: 28),
+              // 白色辉光（原型 text-shadow: 0 0 28px rgba(255,255,255,.35)）
+              Shadow(color: Color(0x59FFFFFF), blurRadius: 28),
             ],
           ),
         ),
@@ -182,7 +186,7 @@ class TotalCard extends StatelessWidget {
     );
   }
 
-  /// 底部行：最近一条 + 撤销按钮
+  /// 底部行：最近一条 + 撤销按钮（button1 撤销图标）
   Widget _buildSubRow() {
     return Row(
       children: [
@@ -192,26 +196,32 @@ class TotalCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: Color(0xD9FFFFFF), // 原型 .total-sub opacity .85
               fontSize: 12,
             ),
           ),
         ),
-        TextButton.icon(
-          onPressed: canUndo ? onUndo : null,
-          icon: const Icon(Icons.undo_rounded, size: 15),
-          label: const Text('撤销上一笔'),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
-            disabledForegroundColor: Colors.white.withValues(alpha: 0.4),
-            backgroundColor: Colors.white.withValues(alpha: 0.14),
-            disabledBackgroundColor: Colors.white.withValues(alpha: 0.07),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            minimumSize: const Size(0, 30),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+        Tooltip(
+          message: '撤销上一笔',
+          child: TextButton(
+            key: const Key('btnUndo'),
+            onPressed: canUndo ? onUndo : null,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
+              backgroundColor: Colors.white.withValues(alpha: 0.24),
+              disabledBackgroundColor: Colors.white.withValues(alpha: 0.14),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: const Size(0, 30),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            textStyle: const TextStyle(fontSize: 12),
+            child: Image.asset(
+              'assets/icons/button1.png',
+              width: 20,
+              height: 20,
+            ),
           ),
         ),
       ],

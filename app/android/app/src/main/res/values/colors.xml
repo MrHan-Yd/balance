@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动背景：浅粉（对齐首页 AppColors.backgroundTop） -->
+    <color name="launch_background">#FDF1F2</color>
+</resources>

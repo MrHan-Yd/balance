@@ -70,7 +70,7 @@ void main() {
           historyBoxProvider.overrideWithValue(historyBox),
         ],
         child: MaterialApp(
-          theme: AppTheme.dark(),
+          theme: AppTheme.light(),
           home: const HomePage(),
         ),
       ),
@@ -94,7 +94,7 @@ void main() {
 
   /// 切换到手动键盘模式（tap 中栏 ⌨️ 图标）
   Future<void> switchToKeypad(WidgetTester tester) async {
-    await tester.tap(find.byIcon(Icons.keyboard_alt_rounded));
+    await tester.tap(find.byKey(const Key('btnKeypadToggle')));
     await settle(tester);
   }
 
@@ -157,11 +157,11 @@ void main() {
     await enterAmount(tester, '5');
     expect(totalText(tester), '43.00');
 
-    await tester.tap(find.text('撤销上一笔'));
+    await tester.tap(find.byKey(const Key('btnUndo')));
     await settle(tester);
     expect(totalText(tester), '38.00');
 
-    await tester.tap(find.text('撤销上一笔'));
+    await tester.tap(find.byKey(const Key('btnUndo')));
     await settle(tester);
     expect(find.text('开始说话，自动记账'), findsOneWidget); // 回到空状态
   });
@@ -171,10 +171,13 @@ void main() {
     await switchToKeypad(tester);
     await enterAmount(tester, '38');
 
-    await tester.tap(find.byIcon(Icons.delete_sweep_rounded));
+    await tester.tap(find.byKey(const Key('btnClear')));
     await settle(tester);
     expect(find.text('确认清空全部？'), findsOneWidget);
-    expect(find.textContaining('当前 1 件'), findsOneWidget);
+    // 信息行为左右两列独立文本（原型 .sheet .row）
+    expect(find.text('本次明细'), findsOneWidget);
+    expect(find.text('1 件'), findsOneWidget);
+    expect(find.text('当前总额'), findsOneWidget);
 
     // 取消：不清空
     await tester.tap(find.text('取消'));
@@ -182,7 +185,7 @@ void main() {
     expect(totalText(tester), '38.00');
 
     // 确认：清空
-    await tester.tap(find.byIcon(Icons.delete_sweep_rounded));
+    await tester.tap(find.byKey(const Key('btnClear')));
     await settle(tester);
     await tester.tap(find.text('清空全部'));
     await settle(tester);
@@ -205,7 +208,7 @@ void main() {
 
   testWidgets('历史页入口（US-012）', (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.byIcon(Icons.history_rounded));
+    await tester.tap(find.byKey(const Key('btnHistory')));
     await settle(tester);
     expect(find.text('历史记录'), findsOneWidget);
     expect(find.text('暂无历史记录'), findsOneWidget);
@@ -218,14 +221,14 @@ void main() {
     await enterAmount(tester, '5');
 
     // 清空 = 结算完成：本次明细应进入历史记录
-    await tester.tap(find.byIcon(Icons.delete_sweep_rounded));
+    await tester.tap(find.byKey(const Key('btnClear')));
     await settle(tester);
     await tester.tap(find.text('清空全部'));
     await settle(tester);
     expect(totalText(tester), '0.00');
 
     // 打开历史页：今日一条 2 件记录，总额 43.00
-    await tester.tap(find.byIcon(Icons.history_rounded));
+    await tester.tap(find.byKey(const Key('btnHistory')));
     await settle(tester);
     expect(find.text('暂无历史记录'), findsNothing);
     final now = DateTime.now();
@@ -249,7 +252,7 @@ void main() {
     await pumpApp(tester);
 
     // 打开设置弹层：默认关闭
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.tap(find.byKey(const Key('btnSettings')));
     await settle(tester);
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('声音反馈'), findsOneWidget);
@@ -267,7 +270,7 @@ void main() {
     await tester.tapAt(const Offset(20, 20));
     await settle(tester);
     await pumpApp(tester);
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.tap(find.byKey(const Key('btnSettings')));
     await settle(tester);
     sw = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
     expect(sw.value, isTrue);
@@ -296,7 +299,7 @@ void main() {
     final baseCount = sounds.length;
 
     // 开启声音反馈
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.tap(find.byKey(const Key('btnSettings')));
     await settle(tester);
     await tester.tap(find.byType(SwitchListTile));
     await settle(tester);

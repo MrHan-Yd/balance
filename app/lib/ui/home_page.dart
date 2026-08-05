@@ -127,20 +127,20 @@ class _HomePageState extends ConsumerState<HomePage>
       ..showSnackBar(
         _failCount >= 2
             ? SnackBar(
-                content: const Text('连续没听清，建议使用手动键盘'),
-                duration: const Duration(seconds: 3),
-                action: SnackBarAction(
-                  label: '切换到键盘',
-                  onPressed: () {
-                    setState(() => _keypadMode = true);
-                    _modeCtrl.forward();
-                  },
-                ),
-              )
-            : const SnackBar(
-                content: Text('没听清，请重说'),
-                duration: Duration(milliseconds: 1200),
+              content: const Text('连续没听清，建议使用手动键盘'),
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: '切换到键盘',
+                onPressed: () {
+                  setState(() => _keypadMode = true);
+                  _modeCtrl.forward();
+                },
               ),
+            )
+            : const SnackBar(
+              content: Text('没听清，请重说'),
+              duration: Duration(milliseconds: 1200),
+            ),
       );
     if (_failCount >= 2) _failCount = 0;
   }
@@ -186,52 +186,99 @@ class _HomePageState extends ConsumerState<HomePage>
     _keypadMode ? _modeCtrl.forward() : _modeCtrl.reverse();
   }
 
-  /// 清空确认弹层：展示当前件数与总额（US-009）
+  /// 清空确认抽屉：展示本次件数与总额（US-009），对齐原型 ui/index.html 清空弹层
   Future<void> _confirmClear(SessionState session) async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
+      backgroundColor: AppColors.sheet,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        // 原型 .sheet border rgba(233,127,139,.18)
+        side: BorderSide(color: Color(0x2EE97F8B)),
+      ),
       builder:
           (ctx) => SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // grab 条（原型 .sheet .grab）
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   const Text(
                     '确认清空全部？',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '当前 ${session.items.length} 件，合计 ${session.total.toStringAsFixed(2)} 元',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
+                  const SizedBox(height: 12),
+                  // 信息行（原型 .sheet .row）
+                  _ClearRow(label: '本次明细', value: '${session.items.length} 件'),
+                  _ClearRow(
+                    label: '当前总额',
+                    value: '¥${session.total.toStringAsFixed(2)}',
+                    isLast: true,
+                  ),
+                  const SizedBox(height: 16),
+                  // 清空全部（红色主按钮，原型 .btn.danger）
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text(
+                        '清空全部',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('取消'),
+                  const SizedBox(height: 8),
+                  // 取消（ghost 粉底，原型 .btn.ghost）
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: AppColors.accent.withValues(
+                          alpha: 0.10,
+                        ),
+                        foregroundColor: AppColors.textPrimary,
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.danger,
-                          ),
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('清空全部'),
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text(
+                        '取消',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -244,83 +291,63 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
-  /// 历史记录页：右滑 + 淡入过渡（默认转场在桌面端近乎"闪现"，显式加过渡动画）
+  /// 历史记录抽屉：从底部滑出（对齐原型弹层 .sheet，替代原全屏页面）
   void _openHistory() {
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 280),
-        reverseTransitionDuration: const Duration(milliseconds: 220),
-        pageBuilder: (_, _, _) => const HistoryPage(),
-        transitionsBuilder: (context, animation, _, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-          return FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.5, 0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+    HistorySheet.show(context);
   }
 
   /// 设置弹层（§2.6）：声音反馈默认关闭，菜市场环境建议保持关闭
   Future<void> _openSettings() async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '设置',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Consumer(
-                builder: (context, ref, _) {
-                  final sound = ref.watch(settingsProvider).soundEnabled;
-                  return SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: sound,
-                    onChanged: (v) =>
-                        ref.read(settingsProvider.notifier).setSoundEnabled(v),
-                    title: const Text(
-                      '声音反馈',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: AppColors.textPrimary,
-                      ),
+      builder:
+          (ctx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '设置',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
-                    subtitle: const Text(
-                      '累加成功时播放提示音',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 12),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final sound = ref.watch(settingsProvider).soundEnabled;
+                      return SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: sound,
+                        onChanged:
+                            (v) => ref
+                                .read(settingsProvider.notifier)
+                                .setSoundEnabled(v),
+                        title: const Text(
+                          '声音反馈',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          '累加成功时播放提示音',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -331,58 +358,97 @@ class _HomePageState extends ConsumerState<HomePage>
 
     return Scaffold(
       body: Container(
+        // 底色：浅粉渐变（原型 body linear-gradient(160deg)：左上 → 右下）
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [AppColors.backgroundTop, AppColors.backgroundBottom],
           ),
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            // 模式切换时三区高度随 _modeCurve 缓动（7/9/4 ↔ 6/11/3），
-            // 不再瞬间跳变（原 Expanded flex 直接切换无过渡）
-            child: AnimatedBuilder(
-              animation: _modeCurve,
-              builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) {
-                  final t = _modeCurve.value;
-                  final avail = constraints.maxHeight - 24; // 两个 12 间距
-                  return Column(
-                    children: [
-                      // 顶部：总价卡片（含件数/撤销）；键盘模式下让位给键盘
-                      SizedBox(
-                        height: (7 - t) / 20 * avail,
-                        child: TotalCard(
-                          total: session.total,
-                          itemCount: session.items.length,
-                          lastAdded: _lastAddedLabel(session),
-                          canUndo: session.items.isNotEmpty,
-                          onUndo: () {
-                            ref.read(sessionProvider.notifier).undo();
-                            HapticFeedback.lightImpact();
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // 中部：明细头部 + 列表（键盘模式叠加手动键盘）
-                      SizedBox(
-                        height: (9 + 2 * t) / 20 * avail,
-                        child: _buildMiddle(session),
-                      ),
-                      const SizedBox(height: 12),
-                      // 底部：语音主按键 / 键盘模式确认大按钮
-                      SizedBox(
-                        height: (4 - t) / 20 * avail,
-                        child: _buildBottomBar(status),
-                      ),
-                    ],
-                  );
-                },
+        child: Stack(
+          children: [
+            // 页面级弥散光晕（对齐原型 body 的两个 radial-gradient）
+            Positioned(
+              top: -220,
+              right: -160,
+              child: Container(
+                width: 700,
+                height: 700,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Color(0x33F9A9B4), Color(0x00F9A9B4)],
+                  ),
+                ),
               ),
             ),
-          ),
+            Positioned(
+              bottom: -200,
+              left: -220,
+              child: Container(
+                width: 620,
+                height: 620,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Color(0x1FE97F8B), Color(0x00E97F8B)],
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  12,
+                  16,
+                  12,
+                ), // 模式切换时三区高度随 _modeCurve 缓动（7/9/4 ↔ 6/11/3），
+                // 不再瞬间跳变（原 Expanded flex 直接切换无过渡）
+                child: AnimatedBuilder(
+                  animation: _modeCurve,
+                  builder:
+                      (context, _) => LayoutBuilder(
+                        builder: (context, constraints) {
+                          final t = _modeCurve.value;
+                          final avail = constraints.maxHeight - 24; // 两个 12 间距
+                          return Column(
+                            children: [
+                              // 顶部：总价卡片（含件数/撤销）；键盘模式下让位给键盘
+                              SizedBox(
+                                height: (7 - t) / 20 * avail,
+                                child: TotalCard(
+                                  total: session.total,
+                                  itemCount: session.items.length,
+                                  lastAdded: _lastAddedLabel(session),
+                                  canUndo: session.items.isNotEmpty,
+                                  onUndo: () {
+                                    ref.read(sessionProvider.notifier).undo();
+                                    HapticFeedback.lightImpact();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // 中部：明细头部 + 列表（键盘模式叠加手动键盘）
+                              SizedBox(
+                                height: (9 + 2 * t) / 20 * avail,
+                                child: _buildMiddle(session),
+                              ),
+                              const SizedBox(height: 12),
+                              // 底部：语音主按键 / 键盘模式确认大按钮
+                              SizedBox(
+                                height: (4 - t) / 20 * avail,
+                                child: _buildBottomBar(status),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -403,44 +469,48 @@ class _HomePageState extends ConsumerState<HomePage>
               ),
             ),
             const Spacer(),
-            IconButton(
-              onPressed: _openHistory,
-              icon: const Icon(Icons.history_rounded, size: 20),
-              color: AppColors.textSecondary,
+            // 头部功能按钮：使用 ui/button.png 切出的设计图标
+            //（button2 历史 / button3 设置 / button4 键盘 / button5 清空）
+            _IconImageButton(
+              key: const Key('btnHistory'),
+              asset: 'assets/icons/button2.png',
               tooltip: '历史记录',
+              onPressed: _openHistory,
             ),
-            IconButton(
-              onPressed: _openSettings,
-              icon: const Icon(Icons.settings_outlined, size: 20),
-              color: AppColors.textSecondary,
+            _IconImageButton(
+              key: const Key('btnSettings'),
+              asset: 'assets/icons/button3.png',
               tooltip: '设置',
+              onPressed: _openSettings,
             ),
-            IconButton(
-              onPressed: _toggleKeypad,
+            _IconImageButton(
+              key: const Key('btnKeypadToggle'),
               tooltip: _keypadMode ? '切换到语音' : '手动输入',
-              color: AppColors.textSecondary,
-              // 模式图标切换：淡入 + 缩放过渡
-              icon: AnimatedSwitcher(
+              onPressed: _toggleKeypad,
+              // 模式图标切换：语音模式显示键盘，键盘模式显示麦克风
+              child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(scale: animation, child: child),
-                ),
-                child: Icon(
+                transitionBuilder:
+                    (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(scale: animation, child: child),
+                    ),
+                child: Image.asset(
                   _keypadMode
-                      ? Icons.mic_rounded
-                      : Icons.keyboard_alt_rounded,
+                      ? 'assets/icons/button6.png'
+                      : 'assets/icons/button4.png',
                   key: ValueKey<bool>(_keypadMode),
-                  size: 20,
+                  width: 24,
+                  height: 24,
                 ),
               ),
             ),
-            IconButton(
+            _IconImageButton(
+              key: const Key('btnClear'),
+              asset: 'assets/icons/button5.png',
+              tooltip: '全部清空',
               onPressed:
                   session.items.isEmpty ? null : () => _confirmClear(session),
-              icon: const Icon(Icons.delete_sweep_rounded, size: 20),
-              color: AppColors.textSecondary,
-              tooltip: '全部清空',
             ),
           ],
         ),
@@ -495,16 +565,17 @@ class _HomePageState extends ConsumerState<HomePage>
       duration: const Duration(milliseconds: 220),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.3),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      ),
+      transitionBuilder:
+          (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.3),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          ),
       child: _keypadMode ? _buildKeypadBar() : _buildVoiceBar(status),
     );
   }
@@ -584,5 +655,90 @@ class _HomePageState extends ConsumerState<HomePage>
     final item = session.items.last;
     final name = item.label.isEmpty ? '手动输入' : item.label;
     return '$name +¥${item.amount.toStringAsFixed(2)}';
+  }
+}
+
+/// 图片按钮（ui/button.png 切图）：tooltip 无障碍 + 禁用置灰 + 水波纹
+class _IconImageButton extends StatelessWidget {
+  final String? asset;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Widget? child;
+
+  const _IconImageButton({
+    super.key,
+    this.asset,
+    required this.tooltip,
+    this.onPressed,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.35,
+        child: Material(
+          color: Colors.transparent,
+          child: InkResponse(
+            onTap: onPressed,
+            radius: 24,
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: child ?? Image.asset(asset!, width: 24, height: 24),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 抽屉信息行（原型 .sheet .row）：左标签 + 右数值，粉色分隔线
+class _ClearRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isLast;
+
+  const _ClearRow({
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+      decoration: BoxDecoration(
+        border:
+            isLast
+                ? null
+                : const Border(bottom: BorderSide(color: AppColors.sheetLine)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.amountText,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
