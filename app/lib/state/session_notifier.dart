@@ -46,7 +46,8 @@ class SessionNotifier extends Notifier<SessionState> {
     final added = <CartItem>[];
     for (final m in matches) {
       final item = CartItem(
-        label: m.rawText,
+        label: m.name, // 商品名做标题（"黄瓜"），纯报价为空
+        raw: m.rawText, // 原文片段（"黄瓜5块5"）
         amount: m.value,
         addedAt: DateTime.now(),
       );

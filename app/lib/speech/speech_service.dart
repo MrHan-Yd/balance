@@ -6,8 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:whisper_ggml/whisper_ggml.dart';
 
-/// 语音会话状态机（设计文档 §4.3）：idle → listening → (success | failed | timeout) → idle
-enum SpeechSessionStatus { idle, listening, success, failed, timeout }
+/// 语音会话状态机（设计文档 §4.3）：
+/// idle → listening → processing → (success | failed | timeout) → idle
+enum SpeechSessionStatus { idle, listening, processing, success, failed, timeout }
 
 /// 语音识别服务：设备端离线 Whisper（whisper_ggml + record）。
 ///
@@ -139,18 +140,22 @@ class SpeechService {
         modelPath: _modelPath,
         pcm16Stream: pcm,
         lang: 'zh',
-        // 模型驻留内存：首次说话加载后，后续会话不再等模型加载
-        keepModelLoaded: true,
+        // 领域提示词：引导解码器输出简体、带商品名和口语价格的报价句式，
+        // 显著降低"快/塊"等同音繁体字与无关幻觉文本的概率
+        initialPrompt: '以下是菜市场买菜的报价，白菜三块五，猪肉十二块，黄瓜5块5，土豆两块，鱼八块八，五块五 六块六 七块七 八块八 九块九。',
+        keepModelLoaded: true, // 模型驻留内存：首次加载后，后续会话免等待
       );
       // partials 是单订阅流：必须立即挂监听，否则事件在缓冲区堆积
       _partialsSub = _live!.partials.listen((_) {});
       _inSession = true;
       _lastVoice = DateTime.now();
-      // 音量监听：有声刷新静音起点（单句识别的结束判定）
+      // 音量监听：有声刷新静音起点（单句识别的结束判定）。
+      // record 的 amplitude 是 dBFS（0 为满幅、负值越小越安静），
+      // 说话时约 -25 ~ -10 dBFS，环境安静时低于 -40 dBFS
       _ampSub = _recorder
           .onAmplitudeChanged(const Duration(milliseconds: 200))
           .listen((a) {
-            if (a.current > 0.02) _lastVoice = DateTime.now();
+            if (a.current > -32) _lastVoice = DateTime.now();
           });
       _setStatus(SpeechSessionStatus.listening);
       return true;
@@ -171,13 +176,15 @@ class SpeechService {
     });
   }
 
-  /// 结算当前会话：停止录音 → 取最终文本 → 有内容累加，空则超时提示
+  /// 结算当前会话：停止录音 → 取最终文本 → 有内容累加，空则超时提示。
+  /// 推理收尾需要 1~3 秒，期间置 processing 状态供 UI 显示"识别中…"
   Future<void> _settle() async {
     if (!_inSession) return;
     _inSession = false;
     _silenceTimer?.cancel();
     _maxTimer?.cancel();
     _ampSub?.cancel();
+    _setStatus(SpeechSessionStatus.processing);
     await _recorder.stop();
     final text = (await _live?.stop() ?? '').trim();
     _live = null;

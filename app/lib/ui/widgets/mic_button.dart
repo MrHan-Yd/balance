@@ -36,6 +36,7 @@ class _MicButtonState extends State<MicButton>
   );
 
   bool get _isListening => widget.status == SpeechSessionStatus.listening;
+  bool get _isProcessing => widget.status == SpeechSessionStatus.processing;
 
   @override
   void didUpdateWidget(covariant MicButton oldWidget) {
@@ -59,6 +60,8 @@ class _MicButtonState extends State<MicButton>
     final label =
         !widget.enabled
             ? '手动输入模式'
+            : _isProcessing
+            ? '识别中…'
             : _isListening
             ? '正在聆听…'
             : '按住 · 说话';
@@ -73,9 +76,10 @@ class _MicButtonState extends State<MicButton>
     return Opacity(
       opacity: widget.enabled ? 1 : 0.45,
       child: GestureDetector(
-        onTap: widget.enabled ? widget.onTap : null,
-        onLongPressStart:
-            widget.enabled ? (_) => widget.onLongPressStart?.call() : null,
+        onTap: widget.enabled && !_isProcessing ? widget.onTap : null,
+        onLongPressStart: widget.enabled && !_isProcessing
+            ? (_) => widget.onLongPressStart?.call()
+            : null,
         onLongPressEnd:
             widget.enabled ? (_) => widget.onLongPressEnd?.call() : null,
         child: Container(
@@ -132,26 +136,37 @@ class _MicButtonState extends State<MicButton>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  AnimatedBuilder(
-                    animation: _pulse,
-                    builder:
-                        (_, child) => Transform.scale(
-                          scale: 1 + _pulse.value * 0.25,
-                          child: child,
-                        ),
-                    // 设计图标 button6（麦克风）；聆听中切换声波动画图标
-                    child: _isListening
-                        ? const Icon(
-                            Icons.graphic_eq_rounded,
-                            color: Colors.white,
-                            size: 30,
-                          )
-                        : Image.asset(
-                            'assets/icons/button6.png',
-                            width: 32,
-                            height: 32,
+                  // 识别中：转圈（推理收尾 1~3 秒，屏蔽再次触发的兜底反馈）
+                  if (_isProcessing)
+                    const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  else
+                    AnimatedBuilder(
+                      animation: _pulse,
+                      builder:
+                          (_, child) => Transform.scale(
+                            scale: 1 + _pulse.value * 0.25,
+                            child: child,
                           ),
-                  ),
+                      // 设计图标 button6（麦克风）；聆听中切换声波动画图标
+                      child: _isListening
+                          ? const Icon(
+                              Icons.graphic_eq_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            )
+                          : Image.asset(
+                              'assets/icons/button6.png',
+                              width: 32,
+                              height: 32,
+                            ),
+                    ),
                   const SizedBox(width: 10),
                   Text(
                     label,

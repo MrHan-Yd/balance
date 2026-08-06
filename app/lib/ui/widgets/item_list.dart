@@ -56,6 +56,11 @@ class ItemList extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final item = items[index];
+        // 原型 .name：商品名做标题；.name small：识别原文做副行
+        final title = item.title.isEmpty ? '手动输入' : item.title;
+        final sub = item.label.isNotEmpty && item.raw.isNotEmpty
+            ? '“${item.raw}” · ${_formatTime(item.addedAt)}'
+            : _formatTime(item.addedAt);
         return Dismissible(
           key: ValueKey('${item.addedAt.millisecondsSinceEpoch}-$index'),
           direction: DismissDirection.endToStart,
@@ -94,9 +99,9 @@ class ItemList extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
-                  item.label.isEmpty
+                  item.title.isEmpty
                       ? '¥'
-                      : String.fromCharCodes(item.label.runes.take(1)),
+                      : String.fromCharCodes(item.title.runes.take(1)),
                   style: const TextStyle(
                     fontSize: 16,
                     color: AppColors.amountText,
@@ -104,7 +109,7 @@ class ItemList extends StatelessWidget {
                 ),
               ),
               title: Text(
-                item.label.isEmpty ? '手动输入' : item.label,
+                title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -114,7 +119,9 @@ class ItemList extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                _formatTime(item.addedAt),
+                sub,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,

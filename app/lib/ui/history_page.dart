@@ -146,7 +146,7 @@ class _DayCard extends ConsumerWidget {
             ListTile(
               dense: true,
               title: Text(
-                item.label.isEmpty ? '未命名' : item.label,
+                item.title.isEmpty ? '未命名' : item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

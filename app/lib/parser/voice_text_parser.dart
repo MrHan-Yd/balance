@@ -3,6 +3,7 @@ import '../models/price_match.dart';
 /// 文本解析与数字提取器（设计文档 §4.2）
 ///
 /// 解析管线：
+///   ⓪ 变体归一化：Whisper 中文输出的繁体/同音字（塊→块、兩→两、快→块、点→.）
 ///   ① 中文数字归一化："牛肉三十八" → "牛肉38"
 ///   ② 金额单位映射：块/元 → 整数结束；毛/角 → 小数 1 位；分 → 小数 2 位
 ///   ③ 多金额提取：扫描全部候选数字（非 firstMatch）
@@ -64,8 +65,54 @@ class VoiceTextParser {
   static List<PriceMatch> parseVoiceTexts(String input) {
     if (input.trim().isEmpty) return const [];
 
-    final text = normalizeChineseNumbers(input); // ①
+    var text = _normalizeVariants(input); // ⓪ 塊/快→块、兩→两…
+    text = _stripNoiseWords(text); // ⓪.5 误听停用词→空格（"几块钱"等，防残留进 label）
+    text = normalizeChineseNumbers(text); // ① 五→5、三十八→38
+    // "X点Y" → "X.Y"：需在中文数字归一化之后（"五点五"→"5点5"→"5.5"）
+    text = text.replaceAllMapped(_dianRegex, (m) => '${m[1]}.${m[2]}');
     return _extractAmounts(text); // ②③④
+  }
+
+  // ---------- ⓪ 变体归一化 ----------
+
+  /// Whisper 中文输出的繁体字与同音字变体 → 标准简体。
+  /// 真机实测："5快5"（快=块）、"5塊5"（繁体）、"兩"（繁体两）均无法识别
+  static const Map<String, String> _charVariants = {
+    '塊': '块',
+    '快': '块', // 同音字：报价语境下"快"即"块"
+    '兩': '两',
+    '倆': '两',
+    '圓': '元',
+    '園': '元',
+    '萬': '万',
+    '仟': '千',
+    '佰': '百',
+    '拾': '十',
+    '壹': '一',
+    '贰': '二',
+    '貳': '二',
+    '叁': '三',
+    '參': '三',
+    '肆': '四',
+    '伍': '五',
+    '陸': '六',
+    '柒': '七',
+    '捌': '八',
+    '玖': '九',
+    '幾': '几', // 快语速误听："七块七"→"几块钱"（停用词命中，见 _noiseWords）
+    '錢': '钱', // 繁体钱："5块钱"的"錢"
+  };
+
+  /// "X点Y" → "X.Y"（Whisper 常把口语小数输出为"5点5"）
+  static final RegExp _dianRegex = RegExp(r'(\d)[点點](\d)');
+
+  static String _normalizeVariants(String input) {
+    final buffer = StringBuffer();
+    for (final rune in input.runes) {
+      final c = String.fromCharCode(rune);
+      buffer.write(_charVariants[c] ?? c);
+    }
+    return buffer.toString();
   }
 
   // ---------- ① 中文数字归一化 ----------
@@ -125,7 +172,7 @@ class VoiceTextParser {
   static List<PriceMatch> _extractAmounts(String text) {
     final matches = _digitRegex.allMatches(text).toList();
     final results = <PriceMatch>[];
-    int consumedUntil = -1; // 已被金额表达式消费的文本位置（避免重复提取）
+    int consumedUntil = 0; // 已被前笔消费的文本位置（label 回溯与重复提取的边界）
 
     for (int i = 0; i < matches.length; i++) {
       final m = matches[i];
@@ -134,8 +181,12 @@ class VoiceTextParser {
       final value = double.parse(m.group(0)!);
       final intPart = m.group(0)!;
 
-      // 表达式起点：若紧邻前一字符是中文/字母（商品名），label 从该处开始
-      final labelStart = _labelStart(text, m.start);
+      // 表达式起点：向前回溯商品名，但不越过上一笔的消费终点
+      // （Whisper 输出基本无标点，越过会导致 label 跨笔累积）
+      final labelStart = _labelStart(text, m.start, consumedUntil);
+      var name = text.substring(labelStart, m.start).trim();
+      // 纯量词残留（"块8块8" 的 label="块"、"块钱"）不是商品名 → 置空
+      if (_isPureUnit(name)) name = '';
 
       // 金额单位表达：X块 / X块Y / X块Y毛Z分 / X毛 / X分 ...
       if (!intPart.contains('.')) {
@@ -147,6 +198,7 @@ class VoiceTextParser {
               PriceMatch(
                 value: amount,
                 rawText: text.substring(labelStart, parsed.$2).trim(),
+                name: name,
               ),
             );
             consumedUntil = parsed.$2;
@@ -160,12 +212,20 @@ class VoiceTextParser {
 
       // 孤立数字 → 视为直接报价
       if (value > 0 && value.truncate() <= maxAmount) {
+        // 小数后的"元/块"是冗余单位（"4.5元"）：并入本笔，避免粘到下一笔
+        var end = m.end;
+        final p = _skipSpaces(text, end);
+        if (p < text.length && (text[p] == '元' || text[p] == '块')) {
+          end = p + 1;
+        }
         results.add(
           PriceMatch(
             value: _roundToCent(value),
-            rawText: text.substring(labelStart, m.end).trim(),
+            rawText: text.substring(labelStart, end).trim(),
+            name: name,
           ),
         );
+        consumedUntil = end; // 孤立报价同样占位，下一笔 label 不回头
       }
     }
     return results;
@@ -221,6 +281,8 @@ class VoiceTextParser {
         p += 1;
       } else if (_isFollowedByIgnoredUnit(text, p)) {
         return null; // "5块3斤"：数字后紧跟重量/数量单位 → 非小数位，整块到此结束
+      } else if (p < text.length && (text[p] == '块' || text[p] == '元')) {
+        return null; // "5块6块6"：块后数字串紧跟下一笔的"块/元" → 末位属下一笔，本笔到此结束
       } else {
         jiao = n.$1; // "X块Y" → 块后直接数字即 1 位小数
       }
@@ -250,6 +312,11 @@ class VoiceTextParser {
       p = _skipSpaces(text, p);
       if (p < text.length && _isDigit(text, p)) {
         final n = _readDigits(text, p);
+        // 分位候选数字后紧跟"块/元" → 是下一笔报价的整数位，不消费（"8块8 9块9"→8.8+9.9）
+        final after = _skipSpaces(text, n.$2);
+        if (after < text.length && (text[after] == '块' || text[after] == '元')) {
+          return (jiao * 0.1, p);
+        }
         fen = n.$1;
         p = n.$2;
         if (p < text.length && text[p] == '分') p += 1;
@@ -298,11 +365,40 @@ class VoiceTextParser {
     return false;
   }
 
+  // ---------- 停用词（Whisper 快语速误听产物） ----------
+
+  /// 误听噪声：快语速时"七块七"被听成"几块钱"，以及询问句"多少钱/老板"等。
+  /// 提取前替换为空格，避免残留成 label。顺序：长词在前，防部分替换
+  static const List<String> _noiseWords = [
+    '几块钱',
+    '几块',
+    '块钱',
+    '多少钱',
+    '这个',
+    '那个',
+    '老板',
+  ];
+
+  static String _stripNoiseWords(String text) {
+    var result = text;
+    for (final w in _noiseWords) {
+      result = result.replaceAll(w, ' ');
+    }
+    return result;
+  }
+
+  /// label 是否纯量词（块/元/毛/角/分/钱）："块"、"块钱" 这类残片不是商品名
+  static final RegExp _pureUnitRegex = RegExp(r'^[块元毛角分钱]+$');
+
+  static bool _isPureUnit(String s) => s.isNotEmpty && _pureUnitRegex.hasMatch(s);
+
   /// 金额表达式 label 起点：向前扩展到最近的标点/句子边界，
-  /// 商品名（含隔空格的"豆腐 12.5"）一并包含为原文片段
-  static int _labelStart(String text, int digitStart) {
+  /// 商品名（含隔空格的"豆腐 12.5"）一并包含为原文片段。
+  /// [floor] 为上一笔的消费终点——Whisper 输出基本无标点，
+  /// 不设下界会回溯到整句开头，导致每笔 label 携带前面所有已入账内容
+  static int _labelStart(String text, int digitStart, int floor) {
     var start = digitStart;
-    while (start > 0) {
+    while (start > floor) {
       final prev = text[start - 1];
       if (prev == '，' ||
           prev == ',' ||

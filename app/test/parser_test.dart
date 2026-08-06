@@ -199,20 +199,119 @@ void main() {
       final r = VoiceTextParser.parseVoiceTexts('豆腐 12.5');
       expect(r.single.value, 12.5);
       expect(r.single.rawText, contains('豆腐'));
+      expect(r.single.name, '豆腐');
     });
     test('无分隔商品名', () {
       final r = VoiceTextParser.parseVoiceTexts('豆腐38');
       expect(r.single.value, 38);
       expect(r.single.rawText, '豆腐38');
+      expect(r.single.name, '豆腐');
     });
     test('商品名 + 中文金额', () {
       final r = VoiceTextParser.parseVoiceTexts('牛肉三十八');
       expect(r.single.value, 38);
       expect(r.single.rawText, '牛肉38');
+      expect(r.single.name, '牛肉');
     });
     test('多句以标点分隔', () {
       final r = VoiceTextParser.parseVoiceTexts('黄瓜5块。牛肉38！');
       expect(r.map((e) => e.value), [5, 38]);
+    });
+    test('黄瓜五块五 → 黄瓜是标题，5.5 是金额', () {
+      final r = VoiceTextParser.parseVoiceTexts('黄瓜五块五');
+      expect(r.single.name, '黄瓜');
+      expect(r.single.value, 5.5);
+      expect(r.single.rawText, '黄瓜5块5');
+    });
+    test('纯报价 name 为空', () {
+      expect(VoiceTextParser.parseVoiceTexts('38').single.name, '');
+      expect(VoiceTextParser.parseVoiceTexts('五块五').single.name, '');
+    });
+    test('多笔各取各的 name', () {
+      final r = VoiceTextParser.parseVoiceTexts('黄瓜5块，牛肉38');
+      expect(r[0].name, '黄瓜');
+      expect(r[1].name, '牛肉');
+    });
+  });
+
+  group('⓪ 变体归一化（Whisper 繁体/同音字输出）', () {
+    test('同音字快 → 块："5快5"', () {
+      expect(VoiceTextParser.parseVoiceTexts('5快5').single.value, 5.5);
+    });
+    test('繁体塊："5塊5"', () {
+      expect(VoiceTextParser.parseVoiceTexts('5塊5').single.value, 5.5);
+    });
+    test('繁体兩："兩块"', () {
+      expect(VoiceTextParser.parseVoiceTexts('兩块').single.value, 2);
+    });
+    test('口语小数：五点五', () {
+      expect(VoiceTextParser.parseVoiceTexts('五点五').single.value, 5.5);
+    });
+    test('混排小数：5点5', () {
+      expect(VoiceTextParser.parseVoiceTexts('5点5').single.value, 5.5);
+    });
+    test('整句同音：黄瓜五快五', () {
+      final r = VoiceTextParser.parseVoiceTexts('黄瓜五快五');
+      expect(r.single.value, 5.5);
+      expect(r.single.name, '黄瓜');
+    });
+  });
+
+  group('无标点连续多笔（Whisper 中文输出基本无标点）', () {
+    test('label 不跨笔累积（真机回归场景）', () {
+      final r = VoiceTextParser.parseVoiceTexts('5块5 上18 黄瓜55块5');
+      expect(r.length, 3);
+      expect(r.map((e) => e.value), [5.5, 18, 55.5]);
+      expect(r[0].rawText, '5块5');
+      expect(r[1].rawText, '上18');
+      expect(r[2].rawText, '黄瓜55块5');
+      expect(r[2].name, '黄瓜');
+    });
+    test('两笔紧连无空格', () {
+      final r = VoiceTextParser.parseVoiceTexts('黄瓜5块5牛肉38');
+      expect(r.map((e) => e.value), [5.5, 38]);
+      expect(r[0].rawText, '黄瓜5块5');
+      expect(r[1].rawText, '牛肉38');
+      expect(r[1].name, '牛肉');
+    });
+    test('孤立报价连续两笔不互相吞并', () {
+      final r = VoiceTextParser.parseVoiceTexts('38 12.5');
+      expect(r.map((e) => e.value), [38, 12.5]);
+      expect(r[1].rawText, '12.5');
+    });
+  });
+
+  group('连续纯数字报价（Whisper 快语速误听）', () {
+    test('真机输出：5块6块6几块钱8块8 9块9', () {
+      final r = VoiceTextParser.parseVoiceTexts('5块6块6几块钱8块8 9块9');
+      expect(r.map((e) => e.value), [5, 6.6, 8.8, 9.9]);
+      expect(r.map((e) => e.rawText), ['5块', '6块6', '8块8', '9块9']);
+      expect(r.map((e) => e.name), ['', '', '', '']);
+    });
+    test('无空格粘连：5块6块6', () {
+      final r = VoiceTextParser.parseVoiceTexts('5块6块6');
+      expect(r.map((e) => e.value), [5, 6.6]);
+      expect(r[1].rawText, '6块6');
+    });
+    test('有空格：8块8 9块9（分位不吞下一笔）', () {
+      final r = VoiceTextParser.parseVoiceTexts('8块8 9块9');
+      expect(r.map((e) => e.value), [8.8, 9.9]);
+    });
+    test('规范间距：5块5 6块6', () {
+      final r = VoiceTextParser.parseVoiceTexts('5块5 6块6');
+      expect(r.map((e) => e.value), [5.5, 6.6]);
+    });
+    test('几块钱不污染下一笔 label', () {
+      final r = VoiceTextParser.parseVoiceTexts('几块钱8块8');
+      expect(r.length, 1);
+      expect(r.single.value, 8.8);
+      expect(r.single.name, '');
+    });
+    test('纯单位残留 label 清空（块8块8）', () {
+      final r = VoiceTextParser.parseVoiceTexts('块8块8');
+      expect(r.length, 1);
+      expect(r.single.value, 8.8);
+      expect(r.single.name, '');
     });
   });
 }

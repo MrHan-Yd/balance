@@ -653,7 +653,7 @@ class _HomePageState extends ConsumerState<HomePage>
   String _lastAddedLabel(SessionState session) {
     if (session.items.isEmpty) return '';
     final item = session.items.last;
-    final name = item.label.isEmpty ? '手动输入' : item.label;
+    final name = item.title.isEmpty ? '手动输入' : item.title;
     return '$name +¥${item.amount.toStringAsFixed(2)}';
   }
 }
